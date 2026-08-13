@@ -20,7 +20,8 @@ data/
 artifacts/
 design-qa.md
 AGENTS.md
-.openai/
+.openai/*
+!.openai/hosting.json
 .idea/
 .vscode/
 *.log
