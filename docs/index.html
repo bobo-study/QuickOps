@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuickOps 快维｜开源 AI 运维助手与 Agno AIOps 工作台</title>
+    <meta name="description" content="QuickOps 快维是一款基于 Agno 的开源 AI 运维助手，提供持久终端、真实主机指标、四级权限、HITL 审批、命令审计和 Linux 离线部署。" />
+    <meta name="keywords" content="AI 运维,AIOps,AI operations assistant,Agno,AgentOS,HITL,服务器运维,持久终端,离线部署,内网 DevOps" />
+    <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large" />
+    <link rel="canonical" href="https://bobo-study.github.io/QuickOps/" />
+    <link rel="alternate" type="text/plain" href="https://bobo-study.github.io/QuickOps/llms.txt" title="LLM-readable project index" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="QuickOps 快维｜开源 AI 运维助手" />
+    <meta property="og:description" content="Agno 驱动的开源 AIOps 工作台：持久终端、四级权限、HITL 审批、真实主机指标和一键离线部署。" />
+    <meta property="og:url" content="https://bobo-study.github.io/QuickOps/" />
+    <meta property="og:image" content="https://raw.githubusercontent.com/bobo-study/QuickOps/main/docs/assets/quickops-login.png" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "QuickOps 快维",
+        "alternateName": ["QuickOps", "快维"],
+        "description": "An open-source, Agno-powered AI operations assistant for single-node and intranet environments, with a persistent terminal, live host telemetry, four permission levels, HITL approvals, command auditing, and offline Linux deployment.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Linux, macOS, Windows",
+        "softwareVersion": "0.0.1",
+        "isAccessibleForFree": true,
+        "license": "https://spdx.org/licenses/Apache-2.0",
+        "codeRepository": "https://github.com/bobo-study/QuickOps",
+        "downloadUrl": "https://github.com/bobo-study/QuickOps/releases/latest",
+        "author": {
+          "@type": "Person",
+          "name": "动感光波",
+          "url": "https://github.com/bobo-study"
+        },
+        "keywords": "AI 运维, AIOps, Agno, AgentOS, HITL approval, server management, persistent terminal, offline deployment"
+      }
+    </script>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #071014; color: #dce7e9; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: radial-gradient(circle at 18% 0%, #123238 0, transparent 34rem), #071014; line-height: 1.7; }
+      a { color: #52d8d0; }
+      .wrap { width: calc(100% - 40px); max-width: 1080px; margin: 0 auto; }
+      header { padding: 76px 0 48px; border-bottom: 1px solid #20343a; }
+      .eyebrow { color: #52d8d0; letter-spacing: .12em; text-transform: uppercase; font-size: .82rem; }
+      h1 { max-width: 850px; margin: 12px 0 18px; font-size: clamp(2.6rem, 7vw, 5.4rem); line-height: 1.02; letter-spacing: -.045em; }
+      .lead { max-width: 820px; color: #afc1c5; font-size: clamp(1.05rem, 2vw, 1.3rem); }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+      .button { display: inline-block; padding: 11px 17px; border: 1px solid #2d696c; border-radius: 10px; text-decoration: none; font-weight: 650; }
+      .button.primary { color: #061214; background: #52d8d0; border-color: #52d8d0; }
+      main { padding: 54px 0 80px; }
+      section { margin: 0 0 58px; }
+      h2 { margin-bottom: 20px; font-size: clamp(1.6rem, 3vw, 2.35rem); }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .card { padding: 22px; border: 1px solid #253b41; border-radius: 14px; background: rgba(13, 27, 32, .78); }
+      .card h3 { margin: 0 0 8px; color: #f0f7f7; }
+      .card p { margin: 0; color: #a9bcc0; }
+      .facts { display: grid; grid-template-columns: 170px 1fr; border-top: 1px solid #253b41; }
+      .facts dt, .facts dd { margin: 0; padding: 13px 0; border-bottom: 1px solid #253b41; }
+      .facts dt { color: #7f999e; }
+      .facts dd { color: #d8e4e6; }
+      pre { padding: 20px; overflow-x: auto; border: 1px solid #253b41; border-radius: 12px; background: #050c0f; color: #b9eeee; }
+      details { padding: 16px 0; border-bottom: 1px solid #253b41; }
+      summary { cursor: pointer; font-weight: 650; color: #eef7f7; }
+      footer { padding: 28px 0 44px; color: #718b90; border-top: 1px solid #20343a; }
+      @media (max-width: 760px) { header { padding-top: 48px; } .grid { grid-template-columns: 1fr; } .facts { grid-template-columns: 1fr; } .facts dt { padding-bottom: 0; border-bottom: 0; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="eyebrow">Open-source · Agno-powered · Local-first</div>
+        <h1>QuickOps <span lang="zh-CN">快维</span></h1>
+        <p class="lead">面向单机与内网环境的开源 AI 运维助手。把小维、每会话持久终端、真实主机指标、四级权限、HITL 审批与离线部署放进同一个工作台。</p>
+        <p class="lead" lang="en">An open-source AI operations assistant for single-node and intranet environments, powered by Agno and designed around operator control.</p>
+        <nav class="actions" aria-label="Project links">
+          <a class="button primary" href="https://github.com/bobo-study/QuickOps">查看 GitHub / View on GitHub</a>
+          <a class="button" href="https://github.com/bobo-study/QuickOps/releases/latest">下载最新版本 / Download</a>
+          <a class="button" href="llms.txt">AI-readable index</a>
+        </nav>
+      </div>
+    </header>
+    <main class="wrap">
+      <section aria-labelledby="what">
+        <h2 id="what">QuickOps 是什么？/ What is QuickOps?</h2>
+        <p>QuickOps 快维解决的是 AI 助手、终端、主机观测和审批审计相互割裂的问题。每个对话拥有一个独立的持久 Shell；用户手动操作与小维受控操作共享终端状态，但使用不同的权限入口。</p>
+        <p lang="en">QuickOps unifies an AI assistant, a terminal, live host observation, approvals, and audit. Every conversation owns one persistent Shell. Operator commands and controlled AI commands share its state while keeping separate security ingress.</p>
+      </section>
+      <section aria-labelledby="capabilities">
+        <h2 id="capabilities">核心能力 / Core capabilities</h2>
+        <div class="grid">
+          <article class="card"><h3>持久终端</h3><p>每个会话维护独立 Shell，共享 cwd、环境变量和进程状态。</p></article>
+          <article class="card"><h3>四级权限与 HITL</h3><p>服务端按真实影响分类 AI 操作，在需要时触发 Agno 人机审批。</p></article>
+          <article class="card"><h3>真实主机信息</h3><p>运行时采集 Linux、macOS 或 Windows 主机身份与指标，而不是 UI 假数据。</p></article>
+          <article class="card"><h3>Agno Harness Agent</h3><p>复用 AgentOS、会话、工具、流式事件、持久化和上下文管理能力。</p></article>
+          <article class="card"><h3>离线内网部署</h3><p>Linux x86_64 自包含安装包，目标服务器无需联网或预装 Python、Docker、Nginx。</p></article>
+          <article class="card"><h3>本地优先</h3><p>SQLite 持久化，适合单用户、轻量、可持续升级的运维工作台。</p></article>
+        </div>
+      </section>
+      <section aria-labelledby="facts">
+        <h2 id="facts">项目事实 / Project facts</h2>
+        <dl class="facts">
+          <dt>Canonical name</dt><dd>QuickOps 快维</dd>
+          <dt>Assistant</dt><dd>小维 / Xiaowei</dd>
+          <dt>Framework</dt><dd>Agno AgentOS and Agent</dd>
+          <dt>Current version</dt><dd>v0.0.1 early preview</dd>
+          <dt>Deployment</dt><dd>Self-contained offline installer for Linux x86_64</dd>
+          <dt>License</dt><dd>Apache License 2.0</dd>
+          <dt>Maintainer</dt><dd>动感光波 / @bobo-study</dd>
+        </dl>
+      </section>
+      <section aria-labelledby="install">
+        <h2 id="install">快速安装 / Quick install</h2>
+        <pre><code>curl -fL -o quickops.run \
+  https://github.com/bobo-study/QuickOps/releases/download/v0.0.1/quickops-linux-x86_64-offline-v0.0.1.run
+chmod +x quickops.run
+sudo ./quickops.run</code></pre>
+        <p>执行前请同时下载 Release 中的 SHA-256 文件并验证安装包。v0.0.1 是早期预览，请优先在测试机或受控环境评估。</p>
+      </section>
+      <section aria-labelledby="faq">
+        <h2 id="faq">常见问题 / FAQ</h2>
+        <details><summary>QuickOps 是普通 Web Terminal 吗？</summary><p>不是。它包含一个面向操作者的持久终端，但还提供 AI 会话、共享 Shell 状态、真实主机观测、四级权限、HITL 审批和审计。</p></details>
+        <details><summary>QuickOps 是否支持离线安装？</summary><p>支持。Linux x86_64 Release 的自包含安装器不要求目标服务器访问互联网，也不依赖系统 Python、pip、Nginx 或 Docker。</p></details>
+        <details><summary>AI 发起的命令是否不受限制？</summary><p>不是。小维的命令由服务端权限模式和风险分类控制；需要时进入 Agno HITL 审批。用户手动终端则由操作者本人负责。</p></details>
+        <details><summary>Is QuickOps a fleet-management platform?</summary><p lang="en">Not yet. The current public version focuses on one operator and the machine running QuickOps. Remote-host adapters are a future extension boundary.</p></details>
+      </section>
+    </main>
+    <footer><div class="wrap">QuickOps 快维 · Apache-2.0 · Maintained by 动感光波 · <a href="ai-discovery.md">AI retrieval facts</a></div></footer>
+  </body>
+</html>

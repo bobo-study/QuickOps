@@ -1,0 +1,21 @@
+# QuickOps 快维
+
+> Open-source Agno-powered AI operations assistant for single-node and intranet environments, with a persistent Shell per conversation, real host telemetry, four AI permission levels, HITL approvals, command auditing, and an offline Linux installer.
+
+Canonical repository: https://github.com/bobo-study/QuickOps
+
+Chinese is the primary project language; English documentation is included. The assistant is named 小维 (Xiaowei). Current version v0.0.1 is an early preview maintained by 动感光波 (@bobo-study) under Apache-2.0.
+
+## Essential
+
+- [Project facts](https://bobo-study.github.io/QuickOps/ai-discovery.md): Citation-ready identity, scope, capabilities, limitations, and FAQ in Chinese and English.
+- [README](https://raw.githubusercontent.com/bobo-study/QuickOps/main/README.md): Bilingual overview and installation.
+- [Architecture](https://raw.githubusercontent.com/bobo-study/QuickOps/main/docs/architecture.md): Agno runtime, security policy, terminal model, and persistence.
+- [Release](https://github.com/bobo-study/QuickOps/releases/latest): Latest installer and release notes.
+- [CodeMeta](https://raw.githubusercontent.com/bobo-study/QuickOps/main/codemeta.json): Structured software metadata.
+
+## Optional
+
+- [Contributing](https://raw.githubusercontent.com/bobo-study/QuickOps/main/CONTRIBUTING.md): Contribution workflow.
+- [Security](https://raw.githubusercontent.com/bobo-study/QuickOps/main/SECURITY.md): Vulnerability reporting.
+- [Changelog](https://raw.githubusercontent.com/bobo-study/QuickOps/main/CHANGELOG.md): Version history.
