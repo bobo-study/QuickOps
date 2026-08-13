@@ -1,0 +1,35 @@
+{
+  "name": "quickops",
+  "version": "0.0.1",
+  "description": "QuickOps 快维 — an Agno-powered AI operations assistant for single-node and intranet environments",
+  "author": "动感光波",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bobo-study/QuickOps.git"
+  },
+  "homepage": "https://github.com/bobo-study/QuickOps#readme",
+  "bugs": {
+    "url": "https://github.com/bobo-study/QuickOps/issues"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "PYTHONPATH=backend .venv/bin/uvicorn quickops.api:app --host 127.0.0.1 --port 7777",
+    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "test:backend": "PYTHONPATH=backend .venv/bin/pytest -q",
+    "lint:backend": ".venv/bin/ruff check backend",
+    "preview": "vite preview",
+    "test:sites": "node --test tests/sites-worker.test.mjs"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "@vitejs/plugin-react": "5.0.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "vite": "6.4.3"
+  }
+}

@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+
+archive_sha256="__ARCHIVE_SHA256__"
+marker="__QUICKOPS_ARCHIVE_BELOW__"
+archive_line=$(awk -v marker="$marker" '$0 == marker { print NR + 1; exit }' "$0")
+if [ -z "$archive_line" ]; then
+  echo "安装包损坏：找不到离线载荷。" >&2
+  exit 1
+fi
+
+extract_dir=$(mktemp -d /tmp/quickops-installer.XXXXXX)
+archive_file="$extract_dir/payload.tar.gz"
+cleanup() {
+  rm -rf "$extract_dir"
+}
+trap cleanup EXIT INT TERM
+
+tail -n "+$archive_line" "$0" > "$archive_file"
+actual_sha256=$(sha256sum "$archive_file" | awk '{print $1}')
+if [ "$actual_sha256" != "$archive_sha256" ]; then
+  echo "安装包完整性校验失败。" >&2
+  exit 1
+fi
+tar -xzf "$archive_file" -C "$extract_dir"
+chmod +x "$extract_dir/deploy/install-quickops.sh"
+"$extract_dir/deploy/install-quickops.sh" --payload-dir "$extract_dir" "$@"
+exit $?
+
+__QUICKOPS_ARCHIVE_BELOW__

@@ -1,0 +1,61 @@
+[project]
+name = "quickops-harness"
+version = "0.0.1"
+description = "Agno-powered Harness Agent backend for QuickOps 快维"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "动感光波" }]
+keywords = ["aiops", "devops", "agno", "hitl", "server-management", "operations"]
+requires-python = ">=3.12"
+dependencies = [
+  "agno[os]>=2.0.0",
+  "ddgs>=9.14.4",
+  "docker>=7.2.0",
+  "duckdb>=1.5.5",
+  "google-cloud-bigquery>=3.42.3",
+  "neo4j>=6.2.0",
+  "openai>=1.0.0",
+  "psycopg[binary]>=3.3.4",
+  "redshift-connector>=2.1.15",
+  "sqlalchemy>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/bobo-study/QuickOps"
+Repository = "https://github.com/bobo-study/QuickOps"
+Issues = "https://github.com/bobo-study/QuickOps/issues"
+Changelog = "https://github.com/bobo-study/QuickOps/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "backend"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+quickops = ["agno_skills/**/*"]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.27.0",
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.24.0",
+  "ruff>=0.9.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

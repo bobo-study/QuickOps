@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use QuickOps, please cite this software."
+title: "QuickOps 快维"
+type: software
+authors:
+  - family-names: 动感光波
+    alias: bobo-study
+repository-code: "https://github.com/bobo-study/QuickOps"
+url: "https://github.com/bobo-study/QuickOps"
+version: 0.0.1
+date-released: 2026-08-13
+license: Apache-2.0
