@@ -1,0 +1,42 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "QuickOps 快维",
+  "alternateName": ["QuickOps", "快维"],
+  "description": "An open-source, Agno-powered AI operations assistant for single-node and intranet environments, with a persistent terminal, live host telemetry, four permission levels, HITL approvals, command auditing, and offline Linux deployment.",
+  "version": "0.0.1",
+  "datePublished": "2026-08-13",
+  "codeRepository": "https://github.com/bobo-study/QuickOps",
+  "issueTracker": "https://github.com/bobo-study/QuickOps/issues",
+  "downloadUrl": "https://github.com/bobo-study/QuickOps/releases/tag/v0.0.1",
+  "license": "https://spdx.org/licenses/Apache-2.0",
+  "author": {
+    "@type": "Person",
+    "name": "动感光波",
+    "url": "https://github.com/bobo-study"
+  },
+  "maintainer": {
+    "@type": "Person",
+    "name": "动感光波",
+    "url": "https://github.com/bobo-study"
+  },
+  "programmingLanguage": ["Python", "JavaScript", "Shell"],
+  "runtimePlatform": ["Python 3.12+", "Node.js 20+", "Linux", "macOS", "Windows"],
+  "operatingSystem": ["Linux", "macOS", "Windows"],
+  "applicationCategory": "DeveloperApplication",
+  "keywords": [
+    "AI 运维",
+    "AIOps",
+    "AI operations assistant",
+    "Agno",
+    "AgentOS",
+    "HITL approval",
+    "server management",
+    "persistent terminal",
+    "infrastructure diagnostics",
+    "offline deployment",
+    "intranet DevOps"
+  ],
+  "developmentStatus": "wip",
+  "referencePublication": "https://github.com/bobo-study/QuickOps/blob/main/README.md"
+}

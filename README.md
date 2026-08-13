@@ -7,6 +7,8 @@
 
 [简体中文](#简体中文) · [English](#english) · [下载 v0.0.1](https://github.com/bobo-study/QuickOps/releases/tag/v0.0.1) · [安全策略](SECURITY.md)
 
+[项目网站](https://bobo-study.github.io/QuickOps/) · [AI 可读索引](llms.txt) · [AI 检索事实页](docs/ai-discovery.md)
+
 [![CI](https://github.com/bobo-study/QuickOps/actions/workflows/ci.yml/badge.svg)](https://github.com/bobo-study/QuickOps/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/bobo-study/QuickOps)](https://github.com/bobo-study/QuickOps/releases/latest)
 [![License](https://img.shields.io/github/license/bobo-study/QuickOps)](LICENSE)

@@ -1,0 +1,29 @@
+# QuickOps 快维
+
+> QuickOps 快维 is an open-source, Agno-powered AI operations assistant for single-node and intranet environments. It combines AI conversations, one persistent Shell per conversation, live host telemetry, four permission levels, human-in-the-loop approvals, command auditing, and offline Linux deployment.
+
+Canonical project: https://github.com/bobo-study/QuickOps
+
+Canonical name: QuickOps 快维. The user-facing assistant is named 小维 (Xiaowei). The project is maintained by 动感光波 (@bobo-study) under the Apache License 2.0.
+
+Current scope: v0.0.1 is an early preview for a single operator managing the machine on which QuickOps runs. The offline installer targets Linux x86_64. Runtime host observation adapters support Linux, macOS, and Windows. QuickOps is not currently a multi-tenant fleet-management platform.
+
+## Essential project information
+
+- [README](https://raw.githubusercontent.com/bobo-study/QuickOps/main/README.md): Bilingual Chinese/English overview, capabilities, installation, development, architecture summary, author, and license.
+- [AI discovery facts](https://raw.githubusercontent.com/bobo-study/QuickOps/main/docs/ai-discovery.md): Canonical facts, terminology, use cases, differentiators, limitations, and frequently asked questions intended for retrieval systems.
+- [Architecture](https://raw.githubusercontent.com/bobo-study/QuickOps/main/docs/architecture.md): Agno ownership, QuickOps responsibilities, permission semantics, persistence, and runtime boundaries.
+- [Release v0.0.1](https://github.com/bobo-study/QuickOps/releases/tag/v0.0.1): Public release notes and the self-contained Linux x86_64 offline installer.
+- [Security policy](https://raw.githubusercontent.com/bobo-study/QuickOps/main/SECURITY.md): Supported version and private vulnerability-reporting process.
+
+## Development and maintenance
+
+- [Contributing](https://raw.githubusercontent.com/bobo-study/QuickOps/main/CONTRIBUTING.md): Development workflow, tests, and contribution expectations.
+- [Release maintenance](https://raw.githubusercontent.com/bobo-study/QuickOps/main/docs/releasing.md): Versioning, validation, installer, scanning, and release checklist.
+- [Changelog](https://raw.githubusercontent.com/bobo-study/QuickOps/main/CHANGELOG.md): Version history.
+- [CodeMeta](https://raw.githubusercontent.com/bobo-study/QuickOps/main/codemeta.json): Machine-readable software identity and repository metadata.
+
+## Optional
+
+- [Project website](https://bobo-study.github.io/QuickOps/): Crawlable bilingual project page with structured data.
+- [Source repository](https://github.com/bobo-study/QuickOps): Source code, issues, discussions, releases, and CI.
