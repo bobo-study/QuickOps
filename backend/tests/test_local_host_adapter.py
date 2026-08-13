@@ -60,7 +60,9 @@ class FakeRunner:
 def test_inventory_uses_live_local_observations(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = FakeRunner()
     times = iter((10.0, 11.0))
-    adapter = LocalMacOSHostAdapter(runner=runner, clock=lambda: next(times))
+    adapter = LocalMacOSHostAdapter(
+        runner=runner, clock=lambda: next(times), system_name="darwin"
+    )
     monkeypatch.setattr("quickops.local_host_adapter.os.getloadavg", lambda: (1.25, 1.0, 0.5))
     DiskUsage = namedtuple("DiskUsage", "total used free")
     monkeypatch.setattr(
@@ -84,7 +86,7 @@ def test_inventory_uses_live_local_observations(monkeypatch: pytest.MonkeyPatch)
 
 def test_process_filter_is_in_memory_and_bounded() -> None:
     runner = FakeRunner()
-    adapter = LocalMacOSHostAdapter(runner=runner)
+    adapter = LocalMacOSHostAdapter(runner=runner, system_name="darwin")
     output = adapter.process_list("local-macos", "nginx")
     assert "nginx worker" in output
     assert "python api" not in output
@@ -97,7 +99,7 @@ def test_process_filter_is_in_memory_and_bounded() -> None:
 
 def test_log_search_is_allowlisted_and_time_bounded() -> None:
     runner = FakeRunner()
-    adapter = LocalMacOSHostAdapter(runner=runner)
+    adapter = LocalMacOSHostAdapter(runner=runner, system_name="darwin")
     assert "test log" in adapter.journal_search("local-macos", "nginx.service", 500)
     log_call = next(call for call in runner.calls if call[0][:2] == ("/usr/bin/log", "show"))
     assert "60m" in log_call[0]
@@ -108,7 +110,7 @@ def test_log_search_is_allowlisted_and_time_bounded() -> None:
 
 def test_manual_commands_are_exact_allowlist_entries() -> None:
     runner = FakeRunner()
-    adapter = LocalMacOSHostAdapter(runner=runner)
+    adapter = LocalMacOSHostAdapter(runner=runner, system_name="darwin")
     output, code = adapter.run_readonly_command("local-macos", "df -h /")
     assert code == 0
     assert "Filesystem" in output
@@ -129,7 +131,7 @@ def test_process_output_redacts_common_secret_shapes() -> None:
     def runner(_argv: Sequence[str], _timeout: int) -> tuple[str, int]:
         return "12 me 1 1 1 1 S worker --api-key=sk-abcdefghijklmnop", 0
 
-    adapter = LocalMacOSHostAdapter(runner=runner)
+    adapter = LocalMacOSHostAdapter(runner=runner, system_name="darwin")
     output = adapter.process_list("local-macos")
     assert "abcdefghijklmnop" not in output
     assert "[REDACTED]" in output

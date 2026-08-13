@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 from quickops.api import create_app
+from quickops.local_host_adapter import LocalHostAdapter
 from quickops.settings import Settings
 
 
@@ -16,7 +17,7 @@ def build_client(tmp_path: Path) -> TestClient:
         quickops_auth_username="operator",
         quickops_auth_password="correct-horse-battery-staple",
     )
-    client = TestClient(create_app(settings))
+    client = TestClient(create_app(settings, host_adapter=LocalHostAdapter(system_name="darwin")))
     response = client.post(
         "/api/quickops/auth/login",
         json={"username": "operator", "password": "correct-horse-battery-staple"},
