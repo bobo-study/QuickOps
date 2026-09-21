@@ -5,7 +5,7 @@
 **面向单机与内网场景的开源 AI 运维助手**<br>
 **An open-source AI operations assistant for single-node and intranet environments**
 
-[简体中文](#简体中文) · [English](#english) · [下载 v0.0.1](https://github.com/bobo-study/QuickOps/releases/tag/v0.0.1) · [安全策略](SECURITY.md)
+[简体中文](#简体中文) · [English](#english) · [下载 v0.0.2](https://github.com/bobo-study/QuickOps/releases/tag/v0.0.2) · [安全策略](SECURITY.md)
 
 [项目网站](https://bobo-study.github.io/QuickOps/) · [AI 可读索引](llms.txt) · [AI 检索事实页](docs/ai-discovery.md)
 
@@ -21,7 +21,7 @@
 
 QuickOps 快维是一个基于 [Agno](https://www.agno.com/) 构建的 AI 运维工具。它把 AI 会话、持久终端、主机状态、四级权限、HITL 审批、命令审计和可选工具箱放进同一个工作台，目标是让运维人员在不牺牲控制权的前提下，更高效地诊断和操作服务器。
 
-> 当前版本：**v0.0.1（早期预览）**。请先在测试机或受控环境中评估。涉及生产系统的操作必须由具备相应权限的人员确认。
+> 当前版本：**v0.0.2（测试预览）**。请先在测试机或受控环境中评估。涉及生产系统的操作必须由具备相应权限的人员确认。
 
 ### 主要能力
 
@@ -32,6 +32,9 @@ QuickOps 快维是一个基于 [Agno](https://www.agno.com/) 构建的 AI 运维
 - **真实主机信息**：跨平台读取 macOS、Linux 与 Windows 的主机和运行指标。
 - **流式运行事件**：文本、思考状态、工具调用和审批结果按真实顺序呈现。
 - **可选 Agno 工具箱**：编码、Docker、文件、Python、网页搜索和数据库工具按需启用。
+- **主机资产中心**：按服务隔离状态、事件和文档，支持健康探测、异常排查与运维知识留存。
+- **长会话上下文**：基于 Agno 的会话摘要、定点压缩和工具结果压缩，兼顾上下文连续性与缓存命中。
+- **可下载报告与多模态附件**：生成 Markdown、HTML、JSON、DOCX、PDF 等报告，并支持图片粘贴与预览。
 - **本地优先与离线部署**：SQLite 持久化；Linux x86_64 一键离线安装包不依赖目标服务器联网。
 - **中英双语界面**：可在设置中即时切换并持久保存。
 
@@ -41,9 +44,9 @@ QuickOps 快维是一个基于 [Agno](https://www.agno.com/) 构建的 AI 运维
 
 ```bash
 curl -fL -o quickops.run \
-  https://github.com/bobo-study/QuickOps/releases/download/v0.0.1/quickops-linux-x86_64-offline-v0.0.1.run
+  https://github.com/bobo-study/QuickOps/releases/download/v0.0.2/quickops-linux-x86_64-offline-v0.0.2.run
 curl -fL -o quickops.run.sha256 \
-  https://github.com/bobo-study/QuickOps/releases/download/v0.0.1/quickops-linux-x86_64-offline-v0.0.1.run.sha256
+  https://github.com/bobo-study/QuickOps/releases/download/v0.0.2/quickops-linux-x86_64-offline-v0.0.2.run.sha256
 sha256sum -c quickops.run.sha256
 chmod +x quickops.run
 sudo ./quickops.run
@@ -83,7 +86,7 @@ npm run lint:backend
 
 ### 项目状态与路线
 
-- v0.0.1 聚焦单用户、单节点、本地或内网部署。
+- v0.0.2 聚焦单用户、单节点、本地或内网部署，并完善主机资产、长会话与审批执行闭环。
 - 后续将继续完善远程主机适配、可观测性、工具生态、安装升级体验和安全边界。
 - API 与数据库结构在 `0.x` 阶段可能演进；升级包会尽量保持数据兼容并在必要时提供迁移说明。
 
@@ -91,7 +94,7 @@ npm run lint:backend
 
 QuickOps is an open-source, [Agno](https://www.agno.com/)-powered AI operations assistant for single-node and intranet environments. It combines AI conversations, a persistent terminal, live host telemetry, four permission levels, human-in-the-loop approvals, command auditing, and optional toolkits in one workspace.
 
-> Current release: **v0.0.1 (early preview)**. Evaluate it on a test machine or in a controlled environment first. Production operations must be reviewed by an authorized operator.
+> Current release: **v0.0.2 (testing preview)**. Evaluate it on a test machine or in a controlled environment first. Production operations must be reviewed by an authorized operator.
 
 ### Highlights
 
@@ -102,6 +105,9 @@ QuickOps is an open-source, [Agno](https://www.agno.com/)-powered AI operations 
 - **Real cross-platform host data** for macOS, Linux, and Windows.
 - **Ordered streaming events** for text, reasoning state, tools, and approval outcomes.
 - **Optional Agno toolkits** for coding, Docker, files, Python, web search, and databases.
+- **Host asset center** with service-isolated status, events, documents, health probes, and incident triage.
+- **Long-session context lifecycle** using Agno summaries, checkpoint compaction, and bounded tool-result compression.
+- **Downloadable reports and multimodal attachments** with image paste, preview, and session-scoped artifacts.
 - **Local-first, offline-ready deployment** with SQLite and a self-contained Linux x86_64 installer.
 - **Chinese and English UI** with immediate switching and server-side persistence.
 
@@ -109,9 +115,9 @@ QuickOps is an open-source, [Agno](https://www.agno.com/)-powered AI operations 
 
 ```bash
 curl -fL -o quickops.run \
-  https://github.com/bobo-study/QuickOps/releases/download/v0.0.1/quickops-linux-x86_64-offline-v0.0.1.run
+  https://github.com/bobo-study/QuickOps/releases/download/v0.0.2/quickops-linux-x86_64-offline-v0.0.2.run
 curl -fL -o quickops.run.sha256 \
-  https://github.com/bobo-study/QuickOps/releases/download/v0.0.1/quickops-linux-x86_64-offline-v0.0.1.run.sha256
+  https://github.com/bobo-study/QuickOps/releases/download/v0.0.2/quickops-linux-x86_64-offline-v0.0.2.run.sha256
 sha256sum -c quickops.run.sha256
 chmod +x quickops.run
 sudo ./quickops.run

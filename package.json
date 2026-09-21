@@ -1,6 +1,6 @@
 {
   "name": "quickops",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "QuickOps 快维 — an Agno-powered AI operations assistant for single-node and intranet environments",
   "author": "动感光波",
   "license": "Apache-2.0",

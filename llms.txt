@@ -6,14 +6,14 @@ Canonical project: https://github.com/bobo-study/QuickOps
 
 Canonical name: QuickOps 快维. The user-facing assistant is named 小维 (Xiaowei). The project is maintained by 动感光波 (@bobo-study) under the Apache License 2.0.
 
-Current scope: v0.0.1 is an early preview for a single operator managing the machine on which QuickOps runs. The offline installer targets Linux x86_64. Runtime host observation adapters support Linux, macOS, and Windows. QuickOps is not currently a multi-tenant fleet-management platform.
+Current scope: v0.0.2 is a testing preview for a single operator managing the machine on which QuickOps runs. The offline installer targets Linux x86_64. Runtime host observation adapters support Linux, macOS, and Windows. QuickOps is not currently a multi-tenant fleet-management platform.
 
 ## Essential project information
 
 - [README](https://raw.githubusercontent.com/bobo-study/QuickOps/main/README.md): Bilingual Chinese/English overview, capabilities, installation, development, architecture summary, author, and license.
 - [AI discovery facts](https://raw.githubusercontent.com/bobo-study/QuickOps/main/docs/ai-discovery.md): Canonical facts, terminology, use cases, differentiators, limitations, and frequently asked questions intended for retrieval systems.
 - [Architecture](https://raw.githubusercontent.com/bobo-study/QuickOps/main/docs/architecture.md): Agno ownership, QuickOps responsibilities, permission semantics, persistence, and runtime boundaries.
-- [Release v0.0.1](https://github.com/bobo-study/QuickOps/releases/tag/v0.0.1): Public release notes and the self-contained Linux x86_64 offline installer.
+- [Release v0.0.2](https://github.com/bobo-study/QuickOps/releases/tag/v0.0.2): Public release notes and the self-contained Linux x86_64 offline installer.
 - [Security policy](https://raw.githubusercontent.com/bobo-study/QuickOps/main/SECURITY.md): Supported version and private vulnerability-reporting process.
 
 ## Development and maintenance

@@ -14,9 +14,7 @@ def test_resolves_known_provider_aliases_and_hosts() -> None:
     assert resolve_model_protocol("custom", "https://dashscope.aliyuncs.com/v1") is (
         ModelProtocol.ALIBABA
     )
-    assert resolve_model_protocol("custom", "https://api.deepseek.com") is (
-        ModelProtocol.DEEPSEEK
-    )
+    assert resolve_model_protocol("custom", "https://api.deepseek.com") is (ModelProtocol.DEEPSEEK)
     assert resolve_model_protocol("vLLM") is ModelProtocol.VLLM
     assert resolve_model_protocol("SGLang") is ModelProtocol.SGLANG
 
@@ -32,18 +30,12 @@ def test_compatible_chat_roles_keep_system_role() -> None:
 
 
 def test_hosted_provider_thinking_payloads() -> None:
-    assert thinking_extra_body(provider="SiliconFlow", mode="off") == {
-        "enable_thinking": False
-    }
-    assert thinking_extra_body(provider="阿里云百炼", mode="on") == {
-        "enable_thinking": True
-    }
+    assert thinking_extra_body(provider="SiliconFlow", mode="off") == {"enable_thinking": False}
+    assert thinking_extra_body(provider="阿里云百炼", mode="on") == {"enable_thinking": True}
     assert thinking_extra_body(provider="DeepSeek", mode="off") == {
         "thinking": {"type": "disabled"}
     }
-    assert thinking_extra_body(provider="DeepSeek", mode="on") == {
-        "thinking": {"type": "enabled"}
-    }
+    assert thinking_extra_body(provider="DeepSeek", mode="on") == {"thinking": {"type": "enabled"}}
 
 
 def test_auto_preserves_provider_default() -> None:
@@ -52,15 +44,15 @@ def test_auto_preserves_provider_default() -> None:
 
 
 def test_vllm_and_sglang_use_model_chat_template_switch() -> None:
-    assert thinking_extra_body(
-        provider="vllm", mode="off", model_id="Qwen/Qwen3-32B"
-    ) == {"chat_template_kwargs": {"enable_thinking": False}}
+    assert thinking_extra_body(provider="vllm", mode="off", model_id="Qwen/Qwen3-32B") == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }
     assert thinking_extra_body(
         provider="vllm", mode="on", model_id="deepseek-ai/DeepSeek-V3.1"
     ) == {"chat_template_kwargs": {"thinking": True}}
-    assert thinking_extra_body(
-        provider="sglang", mode="off", model_id="Qwen/Qwen3.5-35B"
-    ) == {"chat_template_kwargs": {"enable_thinking": False}}
+    assert thinking_extra_body(provider="sglang", mode="off", model_id="Qwen/Qwen3.5-35B") == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }
     assert thinking_extra_body(
         provider="sglang", mode="on", model_id="deepseek-ai/DeepSeek-V4"
     ) == {"chat_template_kwargs": {"thinking": True}}

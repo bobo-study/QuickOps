@@ -116,9 +116,7 @@ def test_ai_and_operator_commands_share_one_persistent_shell(tmp_path: Path) -> 
     work = tmp_path / "work"
     work.mkdir()
     try:
-        terminal_manager.execute(
-            "session-1", "cd work && export QUICKOPS_SHARED_SHELL=operator"
-        )
+        terminal_manager.execute("session-1", "cd work && export QUICKOPS_SHARED_SHELL=operator")
         ai_tools = SharedSessionOperationsToolkit(
             terminal_manager,
             "session-1",

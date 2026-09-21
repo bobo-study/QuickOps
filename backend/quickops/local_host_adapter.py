@@ -463,9 +463,7 @@ class LocalHostAdapter:
                 pass
             try:
                 addresses = socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
-                candidates = [
-                    item[4][0] for item in addresses if not item[4][0].startswith("127.")
-                ]
+                candidates = [item[4][0] for item in addresses if not item[4][0].startswith("127.")]
                 if candidates:
                     return candidates[0]
             except OSError:

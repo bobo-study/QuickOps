@@ -17,6 +17,20 @@ class SessionTitleGenerator(Protocol):
     async def generate(self, first_user_message: str) -> str: ...
 
 
+def fallback_title(first_user_message: str) -> str:
+    """Produce a useful deterministic title when the optional naming call fails."""
+    text = re.sub(r"<[^>]+>", " ", str(first_user_message or ""))
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(
+        r"^(?:你好[，,！!。 ]*|请(?:你)?|帮我|麻烦(?:你)?|我想(?:请你)?|能否|可以(?:帮我)?)",
+        "",
+        text,
+    ).strip(" ：:，,。！？!?；;")
+    for separator in ("。", "！", "？", "\n", "；", ";"):
+        text = text.split(separator, 1)[0]
+    return (text[:18].strip() or "新会话").rstrip("，,。！？!?；;：:") or "新会话"
+
+
 class AgnoSessionTitleGenerator:
     """A dedicated, tool-free Agno agent for naming a session.
 

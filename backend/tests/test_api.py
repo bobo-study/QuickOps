@@ -38,10 +38,13 @@ def test_login_is_required_and_logout_invalidates_session(tmp_path: Path) -> Non
         assert client.get("/api/quickops/health").status_code == 200
         assert client.get("/api/quickops/bootstrap").status_code == 401
         assert client.get("/api/quickops/auth/status").json()["authenticated"] is False
-        assert client.post(
-            "/api/quickops/auth/login",
-            json={"username": "operator", "password": "wrong"},
-        ).status_code == 401
+        assert (
+            client.post(
+                "/api/quickops/auth/login",
+                json={"username": "operator", "password": "wrong"},
+            ).status_code
+            == 401
+        )
         logged_in = client.post(
             "/api/quickops/auth/login",
             json={"username": "operator", "password": "server-only-password"},
@@ -56,9 +59,10 @@ def test_login_is_required_and_logout_invalidates_session(tmp_path: Path) -> Non
         bearer = logged_in.json()["access_token"]
         client.cookies.clear()
         authorization = {"Authorization": f"Bearer {bearer}"}
-        assert client.get("/api/quickops/auth/status", headers=authorization).json()[
-            "authenticated"
-        ] is True
+        assert (
+            client.get("/api/quickops/auth/status", headers=authorization).json()["authenticated"]
+            is True
+        )
         assert client.get("/api/quickops/bootstrap", headers=authorization).status_code == 200
         assert client.post("/api/quickops/auth/logout", headers=authorization).status_code == 204
         assert client.get("/api/quickops/bootstrap", headers=authorization).status_code == 401
@@ -227,6 +231,112 @@ def test_session_attachment_upload_is_durable_and_session_scoped(tmp_path: Path)
         assert not attachment_dir.exists()
 
 
+def test_png_attachment_upload_and_authenticated_preview(tmp_path: Path) -> None:
+    png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
+    with build_client(tmp_path) as client:
+        session = client.post(
+            "/api/quickops/sessions", json={"title": "image", "host_id": "local-macos"}
+        ).json()["session"]
+        uploaded = client.post(
+            f"/api/quickops/sessions/{session['id']}/attachments",
+            files={"upload": ("screenshot.png", png, "image/png")},
+        )
+        assert uploaded.status_code == 201
+        attachment = uploaded.json()["attachment"]
+        assert attachment["mime_type"] == "image/png"
+
+        preview = client.get(
+            f"/api/quickops/sessions/{session['id']}/attachments/{attachment['id']}/preview"
+        )
+        assert preview.status_code == 200
+        assert preview.headers["content-type"] == "image/png"
+        assert preview.content == png
+
+
+def test_spoofed_image_attachment_is_rejected(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        session = client.post(
+            "/api/quickops/sessions", json={"title": "image", "host_id": "local-macos"}
+        ).json()["session"]
+        uploaded = client.post(
+            f"/api/quickops/sessions/{session['id']}/attachments",
+            files={"upload": ("screenshot.png", b"not an image", "image/png")},
+        )
+        assert uploaded.status_code == 422
+        assert "图片内容与文件类型不匹配" in uploaded.json()["detail"]
+
+
+def test_asset_crud_mount_and_chat_upload_archives_document(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        session = client.post(
+            "/api/quickops/sessions", json={"title": "asset", "host_id": "local-macos"}
+        ).json()["session"]
+        created = client.post(
+            "/api/quickops/assets/services",
+            json={
+                "name": "nginx",
+                "description": "入口代理",
+                "probe_type": "process",
+                "probe_target": "nginx",
+                "interval_seconds": 60,
+                "enabled": True,
+                "guard_mode": "safe_repair",
+                "guard_policy": "只允许执行最小可恢复修复",
+            },
+        )
+        assert created.status_code == 201
+        service = created.json()["service"]
+        assert service["guard_mode"] == "safe_repair"
+        assert service["guard_policy"] == "只允许执行最小可恢复修复"
+
+        mounted = client.put(
+            f"/api/quickops/sessions/{session['id']}/asset",
+            json={"service_id": service["id"]},
+        )
+        assert mounted.json()["session"]["asset_service"]["name"] == "nginx"
+
+        uploaded = client.post(
+            f"/api/quickops/sessions/{session['id']}/attachments",
+            files={"upload": ("runbook.md", b"upstream timeout recovery", "text/markdown")},
+        )
+        assert uploaded.status_code == 201
+        assert uploaded.json()["asset_document"]["name"] == "runbook.md"
+        documents = client.get(f"/api/quickops/assets/services/{service['id']}/documents").json()[
+            "documents"
+        ]
+        assert [item["name"] for item in documents] == ["runbook.md"]
+        preview = client.get(f"/api/quickops/assets/documents/{documents[0]['id']}/preview").json()[
+            "preview"
+        ]
+        assert preview["kind"] == "text"
+        assert preview["content"] == "upstream timeout recovery"
+        assert "path" not in preview
+
+        event = client.post(
+            f"/api/quickops/assets/services/{service['id']}/events",
+            json={"title": "变更", "content": "上游超时参数已调整"},
+        )
+        assert event.status_code == 201
+        assert (
+            client.get(f"/api/quickops/assets/services/{service['id']}/events").json()["events"][0][
+                "title"
+            ]
+            == "变更"
+        )
+        investigation = client.post(
+            f"/api/quickops/assets/events/{event.json()['event']['id']}/session"
+        )
+        assert investigation.status_code == 201
+        investigation_session = investigation.json()["session"]
+        assert investigation_session["asset_service"]["id"] == service["id"]
+        assert investigation_session["title"] == "nginx：变更"
+        messages = client.get(
+            f"/api/quickops/sessions/{investigation_session['id']}/messages"
+        ).json()["messages"]
+        assert messages[0]["metadata"]["source"] == "asset_event"
+        assert "上游超时参数已调整" in messages[0]["content"]
+
+
 def test_manual_terminal_keeps_state_until_restart_or_close(tmp_path: Path) -> None:
     with build_client(tmp_path) as client:
         session = client.post(
@@ -253,9 +363,7 @@ def test_manual_terminal_keeps_state_until_restart_or_close(tmp_path: Path) -> N
             },
         )
         status = client.get(f"/api/quickops/sessions/{session_id}/terminal").json()
-        restarted = client.post(
-            f"/api/quickops/sessions/{session_id}/terminal/restart"
-        ).json()
+        restarted = client.post(f"/api/quickops/sessions/{session_id}/terminal/restart").json()
         reset_value = client.post(
             "/api/quickops/manual-commands",
             json={
@@ -264,9 +372,7 @@ def test_manual_terminal_keeps_state_until_restart_or_close(tmp_path: Path) -> N
                 "command": 'printf %s "${QUICKOPS_API_TERMINAL-unset}"',
             },
         )
-        closed = client.post(
-            f"/api/quickops/sessions/{session_id}/terminal/close"
-        ).json()
+        closed = client.post(f"/api/quickops/sessions/{session_id}/terminal/close").json()
 
     assert prepared.status_code == 200
     assert initial["terminal_alive"] is True
@@ -292,9 +398,7 @@ def test_entering_a_conversation_restores_its_terminal(tmp_path: Path) -> None:
         assert session["terminal_status"] == "connected"
 
         client.post(f"/api/quickops/sessions/{session_id}/terminal/close")
-        restored = client.get(
-            f"/api/quickops/sessions/{session_id}/terminal"
-        ).json()
+        restored = client.get(f"/api/quickops/sessions/{session_id}/terminal").json()
 
     assert restored["terminal_alive"] is True
     assert restored["status"] == "active"
@@ -312,6 +416,7 @@ def test_configured_models_are_not_deletable_and_store_thinking_mode(tmp_path: P
                 "api_key": "local-key",
                 "thinking_mode": "off",
                 "max_context_k": 256,
+                "supports_vision": True,
             },
         )
         model = created.json()["model"]
@@ -319,6 +424,7 @@ def test_configured_models_are_not_deletable_and_store_thinking_mode(tmp_path: P
 
     assert model["thinking_mode"] == "off"
     assert model["max_context_k"] == 256
+    assert model["supports_vision"] is True
     assert model["can_delete"] is False
     assert deleted.status_code == 409
 
@@ -335,9 +441,7 @@ def test_new_session_appears_and_manual_output_is_persisted(tmp_path: Path) -> N
             json={"host_id": "local-macos", "command": "uptime", "session_id": session_id},
         )
         sessions = client.get("/api/quickops/sessions").json()["sessions"]
-        messages = client.get(
-            f"/api/quickops/sessions/{session_id}/messages"
-        ).json()["messages"]
+        messages = client.get(f"/api/quickops/sessions/{session_id}/messages").json()["messages"]
 
     assert created.status_code == 201
     assert executed.status_code == 200
@@ -366,12 +470,10 @@ def test_manual_mutation_executes_without_ai_approval_or_audit(tmp_path: Path) -
                 "session_id": created["id"],
             },
         )
-        events = client.get(
-            f"/api/quickops/audit-events?session_id={created['id']}"
-        ).json()["events"]
-        messages = client.get(
-            f"/api/quickops/sessions/{created['id']}/messages"
-        ).json()["messages"]
+        events = client.get(f"/api/quickops/audit-events?session_id={created['id']}").json()[
+            "events"
+        ]
+        messages = client.get(f"/api/quickops/sessions/{created['id']}/messages").json()["messages"]
 
     assert requested.status_code == 200
     assert (tmp_path / "manual-created.txt").exists()
@@ -449,9 +551,51 @@ def test_audit_retention_setting_is_retired_and_removed(tmp_path: Path) -> None:
             json={"username": "operator", "password": "server-only-password"},
         )
         listed = client.get("/api/quickops/settings")
-        update = client.put(
-            "/api/quickops/settings/audit_retention_days", json={"value": 30}
-        )
+        update = client.put("/api/quickops/settings/audit_retention_days", json={"value": 30})
 
     assert "audit_retention_days" not in listed.json()["settings"]
     assert update.status_code == 410
+
+
+def test_active_runs_expose_cache_safe_reconnect_boundaries(tmp_path: Path) -> None:
+    from quickops.storage import QuickOpsStorage
+
+    with build_client(tmp_path) as client:
+        session = client.post(
+            "/api/quickops/sessions",
+            json={"title": "恢复测试", "host_id": "local-macos"},
+        ).json()["session"]
+        storage = QuickOpsStorage(tmp_path / "quickops-test.db")
+        storage.create_run(
+            "feedback-run",
+            session_id=session["id"],
+            user_id="operator",
+            input_text="请选择",
+        )
+        storage.update_run("feedback-run", status="paused", output_text="暂停前内容")
+        storage.append_run_event(
+            "feedback-run",
+            event_type="content.delta",
+            payload={"delta": "暂停前内容"},
+        )
+        pause = storage.append_run_event(
+            "feedback-run",
+            event_type="run.paused",
+            payload={"message_id": "durable-assistant", "requirements": []},
+        )
+
+        paused = client.get(
+            f"/api/quickops/sessions/{session['id']}/active-runs"
+        ).json()["runs"][0]
+        assert paused["resume_after_sequence"] == pause["sequence"] - 1
+
+        storage.update_run("feedback-run", status="running", output_text="暂停前内容")
+        boundary = storage.append_run_event(
+            "feedback-run",
+            event_type="continuation.started",
+            payload={"reason": "user_feedback"},
+        )
+        running = client.get(
+            f"/api/quickops/sessions/{session['id']}/active-runs"
+        ).json()["runs"][0]
+        assert running["resume_after_sequence"] == boundary["sequence"]

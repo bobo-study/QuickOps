@@ -171,9 +171,7 @@ class ManualTerminalManager:
             self._save(session_id, managed, status="active", cwd=str(terminal.cwd))
             return managed
 
-    def _discard(
-        self, session_id: str, *, expected: _ManagedTerminal, status: str
-    ) -> None:
+    def _discard(self, session_id: str, *, expected: _ManagedTerminal, status: str) -> None:
         with self._lock:
             if self._terminals.get(session_id) is expected:
                 self._terminals.pop(session_id, None)
@@ -186,9 +184,7 @@ class ManualTerminalManager:
                 status=status,
             )
 
-    def _save(
-        self, session_id: str, managed: _ManagedTerminal, *, status: str, cwd: str
-    ) -> None:
+    def _save(self, session_id: str, managed: _ManagedTerminal, *, status: str, cwd: str) -> None:
         if self.storage is not None:
             self.storage.save_terminal_session(
                 session_id,
