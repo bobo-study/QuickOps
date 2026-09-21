@@ -77,9 +77,7 @@ def test_idle_terminal_is_reaped_and_can_start_fresh(tmp_path: Path) -> None:
         assert terminal_manager.reap_idle() == ["session-1"]
         assert terminal_manager.get_status("session-1")["alive"] is False
 
-        restarted = terminal_manager.execute(
-            "session-1", 'printf %s "${QUICKOPS_EPHEMERAL-unset}"'
-        )
+        restarted = terminal_manager.execute("session-1", 'printf %s "${QUICKOPS_EPHEMERAL-unset}"')
         assert restarted.output == "unset"
     finally:
         terminal_manager.close_all()
@@ -129,9 +127,7 @@ def test_restart_replaces_shell_and_clears_ephemeral_state(tmp_path: Path) -> No
         terminal_manager.execute("session-1", "export QUICKOPS_RESTART=old")
         before = terminal_manager.get_status("session-1")
         restarted = terminal_manager.restart("session-1")
-        observed = terminal_manager.execute(
-            "session-1", 'printf %s "${QUICKOPS_RESTART-unset}"'
-        )
+        observed = terminal_manager.execute("session-1", 'printf %s "${QUICKOPS_RESTART-unset}"')
         assert restarted["alive"] is True
         assert restarted["pid"] != before["pid"]
         assert observed.output == "unset"

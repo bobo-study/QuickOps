@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import shlex
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any
 from agno.tools import Toolkit
 
 from quickops.domain import PermissionMode
+from quickops.execution import CommandPolicy, CommandPolicyError, CommandRisk
 
 
 def _ensure_readonly_query(query: str) -> None:
@@ -17,6 +19,100 @@ def _ensure_readonly_query(query: str) -> None:
     allowed = ("select", "show", "describe", "desc", "explain", "with", "match", "call db.")
     if not normalized.startswith(allowed):
         raise PermissionError("当前为只读模式，只允许查询、描述和执行计划语句")
+
+
+class RiskAwareDockerCommandTools(Toolkit):
+    """Run exact container argv under QuickOps' impact-based approval policy."""
+
+    def __init__(
+        self,
+        docker_tools: Any,
+        permission_mode: PermissionMode,
+        workspace_root: Path,
+    ) -> None:
+        self.docker_tools = docker_tools
+        self.policy = CommandPolicy((workspace_root,))
+        if permission_mode == PermissionMode.READONLY:
+            tools = [self.exec_readonly_in_container]
+            confirmations: list[str] = []
+        elif permission_mode == PermissionMode.APPROVAL:
+            tools = [self.exec_readonly_in_container, self.exec_change_in_container]
+            confirmations = ["exec_change_in_container"]
+        elif permission_mode == PermissionMode.DELEGATED_APPROVAL:
+            tools = [self.exec_safe_in_container, self.exec_elevated_in_container]
+            confirmations = ["exec_elevated_in_container"]
+        else:
+            tools = [self.exec_in_container]
+            confirmations = []
+        super().__init__(
+            name="quickops_docker_command_tools",
+            tools=tools,
+            requires_confirmation_tools=confirmations,
+            instructions=(
+                "Run commands inside a container as an argv JSON string list; never pass shell "
+                "pipes, redirects, command chaining, or a shell program that hides the real "
+                "operation. In delegated approval use exec_safe_in_container for observations "
+                "and ordinary recoverable work; use exec_elevated_in_container only for "
+                "recognized high/critical impact. QuickOps classifies the exact argv on the "
+                "server and requests operator approval only for elevated impact."
+            ),
+            add_instructions=True,
+        )
+
+    def _decision(self, args: list[str]):
+        if not args or not all(isinstance(item, str) and item for item in args):
+            raise CommandPolicyError("args 必须是非空字符串数组")
+        if Path(args[0]).name.casefold() in {
+            "sh",
+            "bash",
+            "zsh",
+            "dash",
+            "fish",
+            "ksh",
+            "cmd",
+            "powershell",
+            "pwsh",
+        }:
+            raise CommandPolicyError("容器命令必须暴露真实 argv，不允许通过 Shell 包装执行")
+        decision = self.policy.classify_argv(args)
+        if decision.risk == CommandRisk.PROHIBITED:
+            raise CommandPolicyError(decision.reason)
+        return decision
+
+    def _execute(self, container_id: str, args: list[str]) -> str:
+        if not container_id.strip():
+            raise CommandPolicyError("container_id 不能为空")
+        decision = self._decision(args)
+        return self.docker_tools.exec_in_container(container_id, shlex.join(decision.argv))
+
+    def exec_readonly_in_container(self, container_id: str, args: list[str]) -> str:
+        """Execute one strictly read-only argv in a container without approval."""
+        decision = self._decision(args)
+        if decision.risk != CommandRisk.READONLY:
+            raise CommandPolicyError("非只读命令应使用受审批的容器命令入口")
+        return self._execute(container_id, args)
+
+    def exec_change_in_container(self, container_id: str, args: list[str]) -> str:
+        """Execute the exact container argv authorized through Agno HITL."""
+        return self._execute(container_id, args)
+
+    def exec_safe_in_container(self, container_id: str, args: list[str]) -> str:
+        """Execute read-only, low-risk, or recoverable container argv autonomously."""
+        decision = self._decision(args)
+        if decision.risk not in {CommandRisk.READONLY, CommandRisk.LOW, CommandRisk.MEDIUM}:
+            raise CommandPolicyError("高风险命令应使用 exec_elevated_in_container")
+        return self._execute(container_id, args)
+
+    def exec_elevated_in_container(self, container_id: str, args: list[str]) -> str:
+        """Execute high/critical container argv after explicit operator approval."""
+        decision = self._decision(args)
+        if decision.risk in {CommandRisk.READONLY, CommandRisk.LOW, CommandRisk.MEDIUM}:
+            raise CommandPolicyError("非高风险命令应使用 exec_safe_in_container")
+        return self._execute(container_id, args)
+
+    def exec_in_container(self, container_id: str, args: list[str]) -> str:
+        """Execute exact argv in a container under full-access mode."""
+        return self._execute(container_id, args)
 
 
 class SessionDatabaseTools(Toolkit):
@@ -35,8 +131,7 @@ class SessionDatabaseTools(Toolkit):
         method = getattr(self, method_name)
         confirmations = (
             [method_name]
-            if permission_mode
-            in {PermissionMode.APPROVAL, PermissionMode.DELEGATED_APPROVAL}
+            if permission_mode in {PermissionMode.APPROVAL, PermissionMode.DELEGATED_APPROVAL}
             else []
         )
         super().__init__(
@@ -62,14 +157,10 @@ class SessionDatabaseTools(Toolkit):
         missing = [key for key in keys if not config.get(key)]
         if missing:
             raise ValueError(
-                "当前会话缺少数据库连接参数："
-                + "、".join(missing)
-                + "。请先向用户询问这些参数。"
+                "当前会话缺少数据库连接参数：" + "、".join(missing) + "。请先向用户询问这些参数。"
             )
 
-    def query_sql(
-        self, query: str, db_url: str | None = None, limit: int = 100
-    ) -> str:
+    def query_sql(self, query: str, db_url: str | None = None, limit: int = 100) -> str:
         """Run SQL; db_url is requested once and then reused in this session."""
         if self.readonly:
             _ensure_readonly_query(query)
@@ -118,9 +209,7 @@ class SessionDatabaseTools(Toolkit):
             _ensure_readonly_query(query)
         from agno.tools.neo4j import Neo4jTools
 
-        config = self._connection(
-            uri=uri, user=user, password=password, database=database
-        )
+        config = self._connection(uri=uri, user=user, password=password, database=database)
         self._require(config, "uri", "user", "password")
         return Neo4jTools(
             uri=config["uri"],
@@ -171,9 +260,7 @@ class SessionDatabaseTools(Toolkit):
             _ensure_readonly_query(query)
         from agno.tools.google.bigquery import GoogleBigQueryTools
 
-        config = self._connection(
-            project=project, dataset=dataset, location=location
-        )
+        config = self._connection(project=project, dataset=dataset, location=location)
         self._require(config, "project", "dataset", "location")
         return GoogleBigQueryTools(
             project=config["project"],
@@ -193,6 +280,7 @@ class ToolkitSpec:
     dependencies: tuple[str, ...] = ()
     config_requirements: tuple[str, ...] = ()
     default_enabled: bool = False
+    usage_tier: str = "specialized"
 
 
 @dataclass(frozen=True)
@@ -219,6 +307,7 @@ TOOLKIT_SPECS: tuple[ToolkitSpec, ...] = (
         "Agno 文件编辑、代码检索与受控 Shell 工具。",
         "agno.tools.coding",
         "CodingTools",
+        usage_tier="overlap",
     ),
     ToolkitSpec(
         "docker",
@@ -228,6 +317,7 @@ TOOLKIT_SPECS: tuple[ToolkitSpec, ...] = (
         "agno.tools.docker",
         "DockerTools",
         dependencies=("docker",),
+        usage_tier="recommended",
     ),
     ToolkitSpec(
         "file",
@@ -236,6 +326,7 @@ TOOLKIT_SPECS: tuple[ToolkitSpec, ...] = (
         "Agno 大文件分块读取、搜索、保存与替换工具。",
         "agno.tools.file",
         "FileTools",
+        usage_tier="recommended",
     ),
     ToolkitSpec(
         "filesystem",
@@ -244,6 +335,7 @@ TOOLKIT_SPECS: tuple[ToolkitSpec, ...] = (
         "Agno LocalFileSystemTools，工作区内文件读写。",
         "agno.tools.local_file_system",
         "LocalFileSystemTools",
+        usage_tier="alternative",
     ),
     ToolkitSpec(
         "python",
@@ -252,6 +344,7 @@ TOOLKIT_SPECS: tuple[ToolkitSpec, ...] = (
         "Agno Python 代码、脚本和依赖安装工具。",
         "agno.tools.python",
         "PythonTools",
+        usage_tier="recommended",
     ),
     ToolkitSpec(
         "workspace",
@@ -260,6 +353,7 @@ TOOLKIT_SPECS: tuple[ToolkitSpec, ...] = (
         "Agno Workspace 统一的读写、搜索、移动与命令执行工具。",
         "agno.tools.workspace",
         "Workspace",
+        usage_tier="alternative",
     ),
     ToolkitSpec(
         "web_search",
@@ -269,6 +363,26 @@ TOOLKIT_SPECS: tuple[ToolkitSpec, ...] = (
         "agno.tools.websearch",
         "WebSearchTools",
         dependencies=("ddgs",),
+        usage_tier="recommended",
+    ),
+    ToolkitSpec(
+        "csv",
+        "CSV 分析",
+        "data",
+        "Agno CSV 读取、字段检查与 DuckDB 查询工具，适合日志和指标导出分析。",
+        "agno.tools.csv_toolkit",
+        "CsvTools",
+        dependencies=("duckdb",),
+        usage_tier="recommended",
+    ),
+    ToolkitSpec(
+        "airflow",
+        "Airflow 工具",
+        "infrastructure",
+        "Agno Airflow DAG 读取与维护工具。",
+        "agno.tools.airflow",
+        "AirflowTools",
+        usage_tier="specialized",
     ),
     ToolkitSpec(
         "database.sql",
@@ -344,15 +458,9 @@ def _missing(
     *,
     include_session_config: bool = True,
 ) -> list[str]:
-    missing = [
-        f"依赖 {name}"
-        for name in spec.dependencies
-        if not _dependency_exists(name)
-    ]
+    missing = [f"依赖 {name}" for name in spec.dependencies if not _dependency_exists(name)]
     if include_session_config:
-        missing.extend(
-            f"配置 {key}" for key in spec.config_requirements if not config.get(key)
-        )
+        missing.extend(f"配置 {key}" for key in spec.config_requirements if not config.get(key))
     return missing
 
 
@@ -367,7 +475,7 @@ def toolkit_catalog(configs: dict[str, dict[str, Any]] | None = None) -> list[di
         )
         item = asdict(spec)
         item["available"] = not missing
-        item["unavailable_reason"] = f"缺少{'\u3001'.join(missing)}" if missing else None
+        item["unavailable_reason"] = "缺少" + "、".join(missing) if missing else None
         result.append(item)
     return result
 
@@ -378,26 +486,35 @@ def _confirmation_kwargs(permission_mode: PermissionMode, names: list[str]) -> d
     return {}
 
 
+def _change_confirmation_kwargs(
+    permission_mode: PermissionMode, names: list[str]
+) -> dict[str, Any]:
+    """Ordinary reversible changes are autonomous only in delegated-approval mode."""
+    if permission_mode == PermissionMode.APPROVAL:
+        return {"requires_confirmation_tools": names}
+    return {}
+
+
 def _construct(
     spec: ToolkitSpec,
     config: dict[str, Any],
     workspace_root: Path,
     permission_mode: PermissionMode,
-) -> Toolkit:
+) -> Toolkit | list[Toolkit]:
     module = importlib.import_module(spec.module)
     cls: Callable[..., Toolkit] = getattr(module, spec.class_name)
     readonly = permission_mode == PermissionMode.READONLY
     confirmation: dict[str, Any]
 
     if spec.id.startswith("database.") and spec.id != "database.duckdb":
-        return SessionDatabaseTools(
-            spec.id.removeprefix("database."), permission_mode, config
-        )
+        return SessionDatabaseTools(spec.id.removeprefix("database."), permission_mode, config)
 
     if spec.id == "coding":
-        confirmation = _confirmation_kwargs(
-            permission_mode, ["edit_file", "write_file", "run_shell"]
-        )
+        confirmation_names = ["edit_file", "write_file", "run_shell"]
+        if permission_mode == PermissionMode.DELEGATED_APPROVAL:
+            # Arbitrary shell text cannot be safely classified from the toolkit schema alone.
+            confirmation_names = ["run_shell"]
+        confirmation = _confirmation_kwargs(permission_mode, confirmation_names)
         return cls(
             base_dir=workspace_root,
             restrict_to_base_dir=True,
@@ -410,7 +527,7 @@ def _construct(
             **confirmation,
         )
     if spec.id == "file":
-        confirmation = _confirmation_kwargs(
+        confirmation = _change_confirmation_kwargs(
             permission_mode, ["save_file", "replace_file_chunk"]
         )
         return cls(
@@ -421,7 +538,7 @@ def _construct(
             **confirmation,
         )
     if spec.id == "filesystem":
-        confirmation = _confirmation_kwargs(permission_mode, ["write_file"])
+        confirmation = _change_confirmation_kwargs(permission_mode, ["write_file"])
         return cls(
             target_directory=str(workspace_root),
             restrict_to_base_dir=True,
@@ -444,14 +561,24 @@ def _construct(
         return cls(base_dir=workspace_root, restrict_to_base_dir=True, **confirmation)
     if spec.id == "workspace":
         allowed = ["read", "list", "search"] if readonly else None
-        confirm = (
-            ["write", "edit", "move", "delete", "shell"]
-            if permission_mode in {PermissionMode.APPROVAL, PermissionMode.DELEGATED_APPROVAL}
-            else []
-        )
+        confirm = []
+        if permission_mode == PermissionMode.APPROVAL:
+            confirm = ["write", "edit", "move", "delete", "shell"]
+        elif permission_mode == PermissionMode.DELEGATED_APPROVAL:
+            confirm = ["delete", "shell"]
         return cls(root=workspace_root, allowed=allowed, confirm=confirm)
     if spec.id == "web_search":
         return cls(fixed_max_results=8, timeout=15)
+    if spec.id == "csv":
+        csvs = sorted(workspace_root.glob("*.csv"))[:100]
+        return cls(csvs=csvs, row_limit=500)
+    if spec.id == "airflow":
+        return cls(
+            dags_dir=workspace_root,
+            enable_save_dag_file=not readonly,
+            enable_read_dag_file=True,
+            **_change_confirmation_kwargs(permission_mode, ["save_dag_file"]),
+        )
     if spec.id == "docker":
         if readonly:
             include = [
@@ -465,13 +592,16 @@ def _construct(
                 "list_networks",
                 "inspect_network",
             ]
-            return cls(include_tools=include)
+            docker_tools = cls(include_tools=include)
+            command_tools = RiskAwareDockerCommandTools(
+                cls(include_tools=["exec_in_container"]), permission_mode, workspace_root
+            )
+            return [docker_tools, command_tools]
         mutating = [
             "start_container",
             "stop_container",
             "remove_container",
             "run_container",
-            "exec_in_container",
             "pull_image",
             "remove_image",
             "build_image",
@@ -483,7 +613,23 @@ def _construct(
             "connect_container_to_network",
             "disconnect_container_from_network",
         ]
-        return cls(**_confirmation_kwargs(permission_mode, mutating))
+        if permission_mode == PermissionMode.DELEGATED_APPROVAL:
+            mutating = [
+                "stop_container",
+                "remove_container",
+                "remove_image",
+                "remove_volume",
+                "remove_network",
+                "disconnect_container_from_network",
+            ]
+        docker_tools = cls(
+            exclude_tools=["exec_in_container"],
+            **_confirmation_kwargs(permission_mode, mutating),
+        )
+        command_tools = RiskAwareDockerCommandTools(
+            cls(include_tools=["exec_in_container"]), permission_mode, workspace_root
+        )
+        return [docker_tools, command_tools]
     if spec.id == "database.sql":
         return cls(
             db_url=config["db_url"],
@@ -577,24 +723,19 @@ def build_enabled_toolkits(
             include_session_config=False,
         )
         if missing:
-            reports.append(
-                ToolkitLoadReport(spec.id, True, False, f"缺少{'\u3001'.join(missing)}")
-            )
+            reports.append(ToolkitLoadReport(spec.id, True, False, f"缺少{'\u3001'.join(missing)}"))
             continue
         try:
-            tools.append(
-                _construct(
-                    spec,
-                    configs.get(spec.id, {}),
-                    workspace_root.resolve(),
-                    permission_mode,
-                )
+            constructed = _construct(
+                spec,
+                configs.get(spec.id, {}),
+                workspace_root.resolve(),
+                permission_mode,
             )
+            tools.extend(constructed if isinstance(constructed, list) else [constructed])
             reports.append(ToolkitLoadReport(spec.id, True, True))
         except Exception as error:  # optional services/dependencies must not stop AgentOS
             reports.append(ToolkitLoadReport(spec.id, True, False, str(error)[:500]))
     unknown = selected.difference(spec.id for spec in TOOLKIT_SPECS)
-    reports.extend(
-        ToolkitLoadReport(item, True, False, "未知工具箱") for item in sorted(unknown)
-    )
+    reports.extend(ToolkitLoadReport(item, True, False, "未知工具箱") for item in sorted(unknown))
     return ToolkitBuildResult(tools=tools, reports=reports)

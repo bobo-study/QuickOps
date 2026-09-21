@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: Version / 版本
-      placeholder: v0.0.1
+      placeholder: v0.0.2
     validations:
       required: true
   - type: dropdown

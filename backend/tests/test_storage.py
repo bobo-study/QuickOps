@@ -23,6 +23,11 @@ def test_sessions_messages_are_persistent_ordered_and_cascade(storage, tmp_path)
         "s-1", role="tool", content="active", message_type="manual", metadata={"exit": 0}
     )
     messages = storage.list_messages("s-1")
+    updated = storage.update_message(
+        messages[0]["id"], content="检查 nginx 与日志", metadata={"source": "composer"}
+    )
+    assert updated["content"] == "检查 nginx 与日志"
+    assert storage.list_messages("s-1")[0]["content"] == "检查 nginx 与日志"
     assert [item["content"] for item in messages] == ["检查 nginx", "active"]
     assert messages[0]["metadata"] == {"source": "composer"}
 
@@ -73,6 +78,7 @@ def test_model_configs_hide_secrets_and_keep_a_single_default(storage):
         "provider": "SiliconFlow",
         "thinking_mode": "auto",
         "max_context_k": 128,
+        "supports_vision": False,
     }
     # Metadata-only updates preserve a configured credential.
     storage.save_model_config(
@@ -139,6 +145,20 @@ def test_approval_state_machine_and_audit(storage):
     assert event["details"]["exit_code"] == 0
     assert storage.list_audit_events(session_id="s-approval")[0]["id"] == event["id"]
 
+    long_action = "docker exec test sh -lc " + "x" * 900
+    bounded = storage.append_audit_event(
+        session_id="s-approval",
+        actor="agent",
+        event_type="command.executed",
+        action=long_action,
+        target="local",
+        outcome="success",
+        details={"full_action": long_action},
+    )
+    assert len(bounded["action"]) <= 500
+    assert "sha256:" in bounded["action"]
+    assert bounded["details"]["full_action"] == long_action
+
 
 def test_expired_approval_cannot_be_approved(storage):
     storage.create_session("expired", host_id="local", user_id="operator")
@@ -192,6 +212,51 @@ def test_branch_session_copies_history_through_selected_message(storage):
     copied = storage.list_messages("child")
     assert [item["content"] for item in copied] == ["检查 nginx", "正在检查"]
     assert copied[0]["metadata"]["branched_from_message_id"] == first["id"]
+
+
+def test_branch_session_uses_numbered_parent_title(storage):
+    storage.create_session("parent-title", title="排查 Docker 权限", host_id="demo")
+    boundary = storage.append_message("parent-title", role="assistant", content="证据")
+
+    first = storage.branch_session(
+        "parent-title", boundary["id"], child_session_id="branch-title-1"
+    )
+    second = storage.branch_session(
+        "parent-title", boundary["id"], child_session_id="branch-title-2"
+    )
+
+    assert first["title"] == "排查 Docker 权限（1）"
+    assert second["title"] == "排查 Docker 权限（2）"
+
+
+def test_asset_knowledge_is_isolated_and_mount_follows_branch(storage):
+    storage.create_session("asset-session", host_id="local", user_id="operator")
+    first = storage.create_asset_service(
+        host_id="local", name="订单服务", probe_type="process", probe_target="orders"
+    )
+    second = storage.create_asset_service(
+        host_id="local", name="支付服务", probe_type="process", probe_target="payments"
+    )
+    storage.create_asset_event(
+        first["id"], title="连接池故障", content="orders 数据库连接池耗尽", source="agent"
+    )
+    storage.create_asset_event(second["id"], title="证书轮换", content="payments 网关证书已更新")
+    storage.create_asset_document(
+        first["id"],
+        name="runbook.md",
+        mime_type="text/markdown",
+        size=20,
+        path="/tmp/runbook.md",
+        extracted_text="连接池恢复步骤：重置连接并检查最大连接数",
+    )
+    storage.mount_session_asset("asset-session", first["id"])
+    boundary = storage.append_message("asset-session", role="assistant", content="已挂载")
+    child = storage.branch_session("asset-session", boundary["id"], child_session_id="asset-branch")
+
+    assert storage.get_session_asset(child["id"])["id"] == first["id"]
+    results = storage.search_asset_knowledge(first["id"], "连接池")
+    assert {item["kind"] for item in results} == {"event", "document"}
+    assert storage.search_asset_knowledge(second["id"], "连接池") == []
 
 
 def test_revise_session_hides_old_turn_but_retains_report_history(storage):
@@ -289,9 +354,7 @@ def test_existing_run_table_is_migrated_to_allow_paused_without_losing_events(tm
         )
         """
     )
-    cursor.execute(
-        "INSERT INTO quickops_agent_runs_legacy SELECT * FROM quickops_agent_runs"
-    )
+    cursor.execute("INSERT INTO quickops_agent_runs_legacy SELECT * FROM quickops_agent_runs")
     cursor.execute("DROP TABLE quickops_agent_runs")
     cursor.execute("ALTER TABLE quickops_agent_runs_legacy RENAME TO quickops_agent_runs")
     raw.commit()
@@ -304,7 +367,9 @@ def test_existing_run_table_is_migrated_to_allow_paused_without_losing_events(tm
 
     assert migrated.get_run("r1")["status"] == "paused"
     assert migrated.list_run_events("r1")[0]["event_type"] == "run.started"
-    table_sql = migrated.engine.connect().exec_driver_sql(
-        "SELECT sql FROM sqlite_master WHERE name='quickops_agent_runs'"
-    ).scalar_one()
+    table_sql = (
+        migrated.engine.connect()
+        .exec_driver_sql("SELECT sql FROM sqlite_master WHERE name='quickops_agent_runs'")
+        .scalar_one()
+    )
     assert "'paused'" in table_sql

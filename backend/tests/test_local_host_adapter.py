@@ -60,9 +60,7 @@ class FakeRunner:
 def test_inventory_uses_live_local_observations(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = FakeRunner()
     times = iter((10.0, 11.0))
-    adapter = LocalMacOSHostAdapter(
-        runner=runner, clock=lambda: next(times), system_name="darwin"
-    )
+    adapter = LocalMacOSHostAdapter(runner=runner, clock=lambda: next(times), system_name="darwin")
     monkeypatch.setattr("quickops.local_host_adapter.os.getloadavg", lambda: (1.25, 1.0, 0.5))
     DiskUsage = namedtuple("DiskUsage", "total used free")
     monkeypatch.setattr(

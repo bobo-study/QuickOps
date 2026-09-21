@@ -7,6 +7,6 @@ authors:
     alias: bobo-study
 repository-code: "https://github.com/bobo-study/QuickOps"
 url: "https://github.com/bobo-study/QuickOps"
-version: 0.0.1
-date-released: 2026-08-13
+version: 0.0.2
+date-released: 2026-09-21
 license: Apache-2.0

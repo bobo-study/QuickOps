@@ -4,7 +4,7 @@
 
 Canonical repository: https://github.com/bobo-study/QuickOps
 
-Chinese is the primary project language; English documentation is included. The assistant is named 小维 (Xiaowei). Current version v0.0.1 is an early preview maintained by 动感光波 (@bobo-study) under Apache-2.0.
+Chinese is the primary project language; English documentation is included. The assistant is named 小维 (Xiaowei). Current version v0.0.2 is a testing preview maintained by 动感光波 (@bobo-study) under Apache-2.0.
 
 ## Essential
 

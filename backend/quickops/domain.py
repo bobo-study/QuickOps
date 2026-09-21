@@ -86,6 +86,7 @@ class AgentRunRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=200)
     user_id: str = Field(default="operator", min_length=1, max_length=200)
     attachment_ids: list[str] = Field(default_factory=list, max_length=10)
+    model_config_id: str | None = Field(default=None, max_length=100)
 
 
 class AgentRunResponse(BaseModel):
@@ -119,6 +120,28 @@ class SessionUpdateRequest(BaseModel):
     model_config_id: str | None = None
 
 
+class SessionAssetMountRequest(BaseModel):
+    service_id: str | None = Field(default=None, max_length=32)
+
+
+class AssetServiceRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=20_000)
+    probe_type: str = Field(default="process", pattern="^(process|system_service|http|tcp)$")
+    probe_target: str = Field(min_length=1, max_length=1000)
+    interval_seconds: int = Field(default=60, ge=15, le=86_400)
+    enabled: bool = True
+    guard_mode: str = Field(default="diagnose", pattern="^(diagnose|safe_repair)$")
+    guard_policy: str = Field(default="", max_length=20_000)
+
+
+class AssetEventRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    content: str = Field(min_length=1, max_length=200_000)
+    severity: str = Field(default="info", pattern="^(info|warning|critical)$")
+    category: str = Field(default="maintenance", min_length=1, max_length=40)
+
+
 class ModelConfigRequest(BaseModel):
     id: str | None = Field(default=None, max_length=100)
     name: str = Field(min_length=1, max_length=200)
@@ -128,6 +151,7 @@ class ModelConfigRequest(BaseModel):
     api_key: str | None = Field(default=None, max_length=2000)
     thinking_mode: ThinkingMode = ThinkingMode.AUTO
     max_context_k: int = Field(default=128, ge=8, le=4096)
+    supports_vision: bool = False
     is_default: bool = False
     enabled: bool = True
 

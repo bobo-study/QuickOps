@@ -17,12 +17,15 @@ import {
   Copy,
   Cpu,
   DownloadSimple,
+  Eye,
   FileText,
+  ImageSquare,
   Gear,
   GitBranch,
   HardDrives,
   Info,
   LockSimple,
+  Moon,
   ArrowClockwise,
   PaperPlaneTilt,
   Paperclip,
@@ -32,6 +35,7 @@ import {
   ShieldCheck,
   SignOut,
   Stop,
+  Sun,
   TerminalWindow,
   Wrench,
   Trash,
@@ -60,7 +64,7 @@ const permissionCatalog = [
     id: "assisted",
     apiId: "delegated_approval",
     label: "替我审批",
-    note: "仅识别到风险操作时发起审批",
+    note: "自动执行可恢复变更，仅高危操作请你审批",
     icon: ShieldCheck,
   },
   {
@@ -78,6 +82,7 @@ const fallbackModel = {
   provider: "SiliconFlow",
   model_id: "deepseek-ai/DeepSeek-V4-Flash",
   max_context_k: 128,
+  supports_vision: false,
   is_default: true,
 };
 const runStatusLabels = {
@@ -96,7 +101,7 @@ const englishUi = {
   "审批执行": "Approval required",
   "编辑文件或修改系统前均需审批": "Approval is required before files or systems are changed",
   "替我审批": "Risk-based approval",
-  "仅识别到风险操作时发起审批": "Request approval only for recognized risky operations",
+  "自动执行可恢复变更，仅高危操作请你审批": "Run recoverable changes automatically; ask only for high-risk operations",
   "完全访问": "Full access",
   "小维可不受限制地操作当前电脑": "Xiaowei may operate this computer without restrictions",
   "执行中": "Running",
@@ -118,6 +123,9 @@ const englishUi = {
   "回复已由操作员中止。": "The response was stopped by the operator.",
   "已完成": "Completed",
   "正在分析工具结果": "Analyzing tool results",
+  "正在压缩会话上下文": "Compressing conversation context",
+  "上下文压缩完成": "Context compression completed",
+  "上下文压缩失败，正在保留原上下文继续": "Context compression failed; continuing with the original context",
   "正在生成回复": "Generating response",
   "执行中…": "Running…",
   "低风险": "Low risk",
@@ -133,12 +141,23 @@ const englishUi = {
   "已中止当前回复": "The current response was stopped",
   "已批准，小维将继续执行": "Approved. Xiaowei will continue",
   "已拒绝，小维将调整方案": "Rejected. Xiaowei will adjust the plan",
+  "请选择下一步": "Choose the next step",
+  "需要你的选择": "Your choice is needed",
+  "继续": "Continue",
+  "开发与编码": "Development and coding",
+  "基础设施": "Infrastructure",
+  "文件与工作区": "Files and workspace",
+  "网页与检索": "Web and search",
+  "数据分析": "Data analysis",
+  "数据库": "Databases",
   "重命名会话": "Rename session",
   "会话已重命名": "Session renamed",
   "会话已删除": "Session deleted",
   "终端会话已重启": "Terminal session restarted",
   "模型配置已保存": "Model configuration saved",
   "消息已复制": "Message copied",
+  "会话 ID 已复制": "Session ID copied",
+  "复制会话 ID": "Copy session ID",
   "复制失败，请检查浏览器权限": "Copy failed. Check browser permissions",
   "已从该消息创建分支会话": "A branch session was created from this message",
   "设置已保存": "Settings saved",
@@ -182,6 +201,7 @@ const englishUi = {
   "正在获取": "Loading",
   "正在获取路径…": "Getting path…",
   "移除附件": "Remove attachment",
+  "当前模型未启用图像理解能力": "Image understanding is not enabled for the current model",
   "输入你的运维问题或下一步指令…": "Describe an operations issue or enter the next instruction…",
   "在当前终端会话中输入 Shell 命令…": "Enter a shell command in the current terminal session…",
   "中止回复": "Stop response",
@@ -210,6 +230,9 @@ const englishUi = {
   "模型管理": "Model management",
   "关闭设置": "Close settings",
   "界面语言": "Interface language",
+  "界面配色": "Color theme",
+  "夜间": "Dark",
+  "日间": "Light",
   "简体中文": "Simplified Chinese",
   "新会话默认权限": "Default permission for new sessions",
   "主机信号刷新间隔（秒）": "Host signal refresh interval (seconds)",
@@ -228,6 +251,7 @@ const englishUi = {
   "访问密钥": "API key",
   "思考模式": "Thinking mode",
   "最大上下文（k tokens）": "Maximum context (k tokens)",
+  "图像理解（多模态）": "Image understanding (multimodal)",
   "启用此模型": "Enable this model",
   "设为默认模型": "Make default",
   "留空表示保留现有密钥": "Leave blank to keep the existing key",
@@ -245,6 +269,63 @@ const englishUi = {
   "停用": "Disable",
   "启用": "Enable",
   "服务端尚未提供可用的扩展工具。": "The server has not provided any optional tools.",
+  "主机资产": "Host assets",
+  "管理服务": "Manage services",
+  "添加服务": "Add service",
+  "暂无服务资产": "No service assets yet",
+  "状态": "Status",
+  "事件": "Events",
+  "文档": "Documents",
+  "正常": "Healthy",
+  "异常": "Degraded",
+  "不可用": "Down",
+  "待探测": "Pending",
+  "已挂载": "Mounted",
+  "挂载到会话": "Mount in session",
+  "取消挂载": "Unmount",
+  "服务名称": "Service name",
+  "服务说明": "Service description",
+  "探测方式": "Probe type",
+  "探测目标": "Probe target",
+  "探测间隔（秒）": "Probe interval (seconds)",
+  "进程名称": "Process name",
+  "系统服务": "System service",
+  "HTTP 地址": "HTTP URL",
+  "TCP 地址": "TCP address",
+  "启用自动监控": "Enable automatic monitoring",
+  "保存服务": "Save service",
+  "立即探测": "Check now",
+  "删除服务": "Delete service",
+  "新增运维事件": "Add operations event",
+  "事件标题": "Event title",
+  "事件详情": "Event details",
+  "严重级别": "Severity",
+  "保存事件": "Save event",
+  "上传文档": "Upload document",
+  "下载文档": "Download document",
+  "预览文档": "Preview document",
+  "文档预览": "Document preview",
+  "暂无可预览的文本内容": "No previewable text is available",
+  "重命名文档": "Rename document",
+  "删除文档": "Delete document",
+  "删除运维事件": "Delete operations event",
+  "该服务尚无运维事件": "No operations events for this service",
+  "该服务尚无文档": "No documents for this service",
+  "服务资产已保存": "Service asset saved",
+  "服务资产已删除": "Service asset deleted",
+  "探测已完成": "Health check completed",
+  "运维事件已保存": "Operations event saved",
+  "文档已上传": "Document uploaded",
+  "已挂载服务资产": "Service asset mounted",
+  "已取消挂载": "Service asset unmounted",
+  "创建排查会话": "Create investigation session",
+  "已从运维事件创建排查会话": "Investigation session created from the event",
+  "请先创建会话": "Create a session first",
+  "上传文件将同时归档到已挂载服务的文档库": "Uploaded files are also archived to the mounted service library",
+  "推荐": "Recommended",
+  "功能重叠": "Overlapping",
+  "可替代": "Alternative",
+  "专用": "Specialized",
 };
 
 function translate(locale, key, variables = {}) {
@@ -304,6 +385,41 @@ async function api(path, options = {}) {
     throw error;
   }
   return data;
+}
+
+async function downloadAuthenticatedFile(path, filename) {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    headers: sessionAccessToken
+      ? { Authorization: `Bearer ${sessionAccessToken}` }
+      : {},
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.detail || `下载失败（${response.status}）`);
+  }
+  const objectUrl = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename || "download";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+async function fetchAuthenticatedBlob(path) {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    headers: sessionAccessToken
+      ? { Authorization: `Bearer ${sessionAccessToken}` }
+      : {},
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.detail || `请求失败（${response.status}）`);
+  }
+  return response.blob();
 }
 
 function authenticatedEventStream(url) {
@@ -509,6 +625,90 @@ function ApprovalPrompt({ approval, onDecision, pending, t }) {
   );
 }
 
+function UserChoicePrompt({ feedback, onSubmit, pending, t }) {
+  const [answers, setAnswers] = useState({});
+  const [customText, setCustomText] = useState({});
+  useEffect(() => {
+    setAnswers({});
+    setCustomText({});
+  }, [feedback.id]);
+
+  const isCustomOption = (option) =>
+    option.allow_text === true ||
+    /其他|其它|自定义|other|custom/i.test(option.label || "");
+
+  const choose = (question, option) => {
+    const current = answers[question.question] || [];
+    const custom = isCustomOption(option);
+    const nextValues = question.multi_select
+      ? current.includes(option.label)
+        ? current.filter((item) => item !== option.label)
+        : [...current, option.label]
+      : [option.label];
+    const next = { ...answers, [question.question]: nextValues };
+    setAnswers(next);
+    if (!custom && !question.multi_select && feedback.questions.length === 1)
+      onSubmit(feedback, next);
+  };
+  const complete = feedback.questions.every(
+    (question) => (answers[question.question] || []).length > 0,
+  );
+  return (
+    <div className="choice-prompt" role="dialog" aria-label={t("请选择下一步")}>
+      {feedback.questions.map((question, questionIndex) => (
+        <section key={`${question.question}-${questionIndex}`}>
+          <small>{question.header || t("需要你的选择")}</small>
+          <strong>{question.question}</strong>
+          <div className="choice-options">
+            {(question.options || []).map((option, optionIndex) => {
+              const selected = (answers[question.question] || []).includes(option.label);
+              const custom = isCustomOption(option);
+              return (
+                <div className={`choice-option-wrap ${selected ? "selected" : ""}`} key={`${option.label}-${optionIndex}`}>
+                  <button
+                    className={selected ? "selected" : ""}
+                    disabled={pending}
+                    onClick={() => choose(question, option)}
+                  >
+                    <b>{optionIndex + 1}</b>
+                    <span>
+                      <strong>{option.label}</strong>
+                      {option.description && <small>{option.description}</small>}
+                    </span>
+                    {selected && <Check size={15} />}
+                  </button>
+                  {custom && selected && (
+                    <textarea
+                      autoFocus
+                      value={customText[question.question] || ""}
+                      placeholder={t("直接输入你的具体需求")}
+                      onChange={(event) => setCustomText((all) => ({...all, [question.question]: event.target.value}))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                          event.preventDefault();
+                          const value = (customText[question.question] || "").trim();
+                          if (value) onSubmit(feedback, {...answers, [question.question]: [value]});
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+      {(feedback.questions.length > 1 || feedback.questions.some((q) => q.multi_select || (answers[q.question] || []).some((label) => /其他|其它|自定义|other|custom/i.test(label)))) && (
+        <div className="choice-actions">
+          <button disabled={!complete || pending || feedback.questions.some((q) => (answers[q.question] || []).some((label) => /其他|其它|自定义|other|custom/i.test(label)) && !(customText[q.question] || "").trim())} onClick={() => onSubmit(feedback, Object.fromEntries(Object.entries(answers).map(([question, values]) => [question, values.some((label) => /其他|其它|自定义|other|custom/i.test(label)) ? [(customText[question] || "").trim()] : values])))}>
+            {t("继续")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ApprovalEvent({ message, t }) {
   return (
     <div className={`approval-event ${message.metadata?.decision || ""}`}>
@@ -524,6 +724,52 @@ function ApprovalSegment({ segment, t }) {
     <div className={`approval-segment ${segment.decision || ""}`}>
       <ShieldCheck size={13} weight="fill" />
       <span>{segment.content || t("审批操作已处理")}</span>
+    </div>
+  );
+}
+
+function FeedbackSegment({ segment, t }) {
+  return (
+    <div className="approval-segment feedback-segment">
+      <Check size={13} weight="bold" />
+      <span>{segment.content || t("用户已提交选择")}</span>
+    </div>
+  );
+}
+
+function ComposerAttachment({ file, onRemove, t }) {
+  const isImage = file?.type?.startsWith("image/");
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  useEffect(() => {
+    if (!isImage || !file) {
+      setPreviewUrl("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, isImage]);
+
+  return (
+    <div
+      className={`composer-attachment ${isImage ? "image-attachment" : ""}`}
+      title={file.name}
+    >
+      {isImage && previewUrl ? (
+        <img src={previewUrl} alt={file.name} />
+      ) : (
+        <FileText size={14} />
+      )}
+      {!isImage && <span>{file.name}</span>}
+      <button
+        type="button"
+        onClick={onRemove}
+        title={t("移除附件")}
+        aria-label={`${t("移除附件")} ${file.name}`}
+      >
+        <X size={12} />
+      </button>
     </div>
   );
 }
@@ -553,10 +799,19 @@ function ConversationMessage({
             {!!message.metadata?.attachments?.length && (
               <div className="message-attachments">
                 {message.metadata.attachments.map((file) => (
-                  <span key={file.id || file.name}>
-                    <FileText size={14} />
-                    {file.name}
-                  </span>
+                  file.mime_type?.startsWith("image/") && message.session_id && file.id ? (
+                    <span className="message-image-attachment" key={file.id} title={file.name}>
+                      <img
+                        src={`/api/quickops/sessions/${encodeURIComponent(message.session_id)}/attachments/${encodeURIComponent(file.id)}/preview`}
+                        alt={file.name}
+                      />
+                    </span>
+                  ) : (
+                    <span key={file.id || file.name}>
+                      <FileText size={14} />
+                      {file.name}
+                    </span>
+                  )
                 ))}
               </div>
             )}
@@ -591,7 +846,10 @@ function ConversationMessage({
         </div>
       </div>
     );
-  const isLive = message.status === "running" || message.status === "thinking";
+  const isLive =
+    message.status === "running" ||
+    message.status === "thinking" ||
+    message.status === "compacting";
   const timeline = message.segments?.length
     ? message.segments
     : [
@@ -611,12 +869,6 @@ function ConversationMessage({
         <div
           className={`assistant-card result-card ${isLive ? "streaming" : ""}`}
         >
-          {isLive && (
-            <div className="thinking-line">
-              <span className="thinking-pulse" />
-              {t(message.phase || "正在思考")}
-            </div>
-          )}
           <div className="runtime-timeline">
             {timeline.map((segment, index) =>
               segment.type === "tool" ? (
@@ -650,6 +902,12 @@ function ConversationMessage({
                   segment={segment}
                   t={t}
                 />
+              ) : segment.type === "feedback" ? (
+                <FeedbackSegment
+                  key={`feedback-${segment.content || index}-${index}`}
+                  segment={segment}
+                  t={t}
+                />
               ) : (
                 <div className="runtime-content" key={`text-${index}`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -659,6 +917,12 @@ function ConversationMessage({
               ),
             )}
           </div>
+          {isLive && (
+            <div className="thinking-line thinking-line-bottom">
+              <span className="thinking-pulse" />
+              {t(message.phase || "正在思考")}
+            </div>
+          )}
         </div>
         <MessageFooter
           message={message}
@@ -681,6 +945,344 @@ function Signal({ icon: Icon, label, value, tone = "teal", width }) {
       <span className="signal-track">
         <span className={`signal-fill ${tone}`} style={{ width }} />
       </span>
+    </div>
+  );
+}
+
+const assetStatusText = {
+  healthy: "正常",
+  degraded: "异常",
+  down: "不可用",
+  unknown: "待探测",
+};
+
+function AssetCenter({
+  assets,
+  initialService,
+  initialTab,
+  activeSession,
+  onClose,
+  onRefresh,
+  onMount,
+  onCreateInvestigationSession,
+  notify,
+  t,
+}) {
+  const [selectedId, setSelectedId] = useState(initialService?.id || assets[0]?.id || "new");
+  const [tab, setTab] = useState(initialTab || "status");
+  const [events, setEvents] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [busy, setBusy] = useState("");
+  const [preview, setPreview] = useState(null);
+  const documentInput = useRef(null);
+  const selected = assets.find((item) => item.id === selectedId) || null;
+
+  useEffect(
+    () => () => {
+      if (preview?.objectUrl) URL.revokeObjectURL(preview.objectUrl);
+    },
+    [preview?.objectUrl],
+  );
+  const [serviceForm, setServiceForm] = useState({
+    name: "",
+    description: "",
+    probe_type: "process",
+    probe_target: "",
+    interval_seconds: 60,
+    enabled: true,
+    guard_mode: "diagnose",
+    guard_policy: "",
+  });
+  const [eventForm, setEventForm] = useState({
+    title: "",
+    content: "",
+    severity: "info",
+    category: "maintenance",
+  });
+
+  useEffect(() => {
+    setServiceForm(
+      selected
+        ? {
+            name: selected.name,
+            description: selected.description || "",
+            probe_type: selected.probe_type,
+            probe_target: selected.probe_target,
+            interval_seconds: selected.interval_seconds,
+            enabled: selected.enabled,
+            guard_mode: selected.guard_mode || "diagnose",
+            guard_policy: selected.guard_policy || "",
+          }
+        : {
+            name: "",
+            description: "",
+            probe_type: "process",
+            probe_target: "",
+            interval_seconds: 60,
+            enabled: true,
+            guard_mode: "diagnose",
+            guard_policy: "",
+          },
+    );
+  }, [selectedId, selected?.updated_at]);
+
+  const refreshDetail = useCallback(async () => {
+    if (!selectedId || selectedId === "new") {
+      setEvents([]);
+      setDocuments([]);
+      return;
+    }
+    const [eventData, documentData] = await Promise.all([
+      api(`/api/quickops/assets/services/${selectedId}/events`),
+      api(`/api/quickops/assets/services/${selectedId}/documents`),
+    ]);
+    setEvents(listFrom(eventData, "events"));
+    setDocuments(listFrom(documentData, "documents"));
+  }, [selectedId]);
+
+  useEffect(() => {
+    refreshDetail().catch((error) => notify(error.message));
+  }, [refreshDetail, notify]);
+
+  useEffect(() => {
+    if (tab !== "events" || !selectedId || selectedId === "new") return undefined;
+    const timer = window.setInterval(() => refreshDetail().catch(() => {}), 5000);
+    return () => window.clearInterval(timer);
+  }, [refreshDetail, selectedId, tab]);
+
+  const saveService = async (event) => {
+    event.preventDefault();
+    setBusy("service");
+    try {
+      const path = selected
+        ? `/api/quickops/assets/services/${selected.id}`
+        : "/api/quickops/assets/services";
+      const data = await api(path, {
+        method: selected ? "PATCH" : "POST",
+        body: JSON.stringify(serviceForm),
+      });
+      const items = await onRefresh();
+      setSelectedId(data.service?.id || items[0]?.id || "new");
+      notify(t("服务资产已保存"));
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const checkNow = async () => {
+    if (!selected) return;
+    setBusy("check");
+    try {
+      await api(`/api/quickops/assets/services/${selected.id}/check`, { method: "POST" });
+      await Promise.all([onRefresh(), refreshDetail()]);
+      notify(t("探测已完成"));
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const removeService = async () => {
+    if (!selected || !window.confirm(`${t("删除服务")} “${selected.name}”？`)) return;
+    if (activeSession?.asset_service?.id === selected.id) await onMount(null);
+    await api(`/api/quickops/assets/services/${selected.id}`, { method: "DELETE" });
+    const items = await onRefresh();
+    setSelectedId(items[0]?.id || "new");
+    notify(t("服务资产已删除"));
+  };
+
+  const addEvent = async (event) => {
+    event.preventDefault();
+    if (!selected) return;
+    setBusy("event");
+    try {
+      await api(`/api/quickops/assets/services/${selected.id}/events`, {
+        method: "POST",
+        body: JSON.stringify(eventForm),
+      });
+      setEventForm({ title: "", content: "", severity: "info", category: "maintenance" });
+      await refreshDetail();
+      notify(t("运维事件已保存"));
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const editEvent = async (item) => {
+    const title = window.prompt(t("事件标题"), item.title);
+    if (title == null) return;
+    const content = window.prompt(t("事件详情"), item.content);
+    if (content == null) return;
+    await api(`/api/quickops/assets/events/${item.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title, content }),
+    });
+    await refreshDetail();
+  };
+
+  const removeEvent = async (item) => {
+    if (!window.confirm(`${t("删除运维事件")} “${item.title}”？`)) return;
+    await api(`/api/quickops/assets/events/${item.id}`, { method: "DELETE" });
+    await refreshDetail();
+  };
+
+  const uploadDocument = async (file) => {
+    if (!selected || !file) return;
+    const form = new FormData();
+    form.append("upload", file, file.name);
+    setBusy("document");
+    try {
+      await api(`/api/quickops/assets/services/${selected.id}/documents`, {
+        method: "POST",
+        body: form,
+      });
+      await refreshDetail();
+      notify(t("文档已上传"));
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const renameDocument = async (item) => {
+    const name = window.prompt(t("重命名文档"), item.name);
+    if (!name) return;
+    await api(`/api/quickops/assets/documents/${item.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    });
+    await refreshDetail();
+  };
+
+  const removeDocument = async (item) => {
+    if (!window.confirm(`${t("删除文档")} “${item.name}”？`)) return;
+    await api(`/api/quickops/assets/documents/${item.id}`, { method: "DELETE" });
+    await refreshDetail();
+  };
+
+  const downloadDocument = async (item) => {
+    try {
+      await downloadAuthenticatedFile(
+        `/api/quickops/assets/documents/${item.id}/download`,
+        item.name,
+      );
+    } catch (error) {
+      notify(error.message);
+    }
+  };
+
+  const previewDocument = async (item) => {
+    setBusy("preview");
+    try {
+      const data = await api(`/api/quickops/assets/documents/${item.id}/preview`);
+      const details = data.preview;
+      let objectUrl = "";
+      if (details.kind === "image" || details.kind === "pdf") {
+        objectUrl = URL.createObjectURL(
+          await fetchAuthenticatedBlob(
+            `/api/quickops/assets/documents/${item.id}/download`,
+          ),
+        );
+      }
+      setPreview({ ...details, objectUrl });
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const closePreview = () => {
+    if (preview?.objectUrl) URL.revokeObjectURL(preview.objectUrl);
+    setPreview(null);
+  };
+
+  return (
+    <div className="modal-backdrop asset-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <section className="asset-center" role="dialog" aria-modal="true" aria-label={t("主机资产")}>
+        <aside className="asset-sidebar">
+          <div className="asset-sidebar-head">
+            <div><span>QuickOps</span><h2>{t("主机资产")}</h2></div>
+            <button onClick={() => setSelectedId("new")}><Plus size={15} />{t("添加服务")}</button>
+          </div>
+          <div className="asset-service-list">
+            {assets.map((service) => (
+              <button key={service.id} className={selectedId === service.id ? "active" : ""} onClick={() => setSelectedId(service.id)}>
+                <span className={`asset-status-dot ${service.status}`} />
+                <span><strong>{service.name}</strong><small>{service.probe_target}</small></span>
+                <em>{t(assetStatusText[service.status] || "待探测")}</em>
+              </button>
+            ))}
+            {!assets.length && <p>{t("暂无服务资产")}</p>}
+          </div>
+        </aside>
+        <div className="asset-main">
+          <header className="asset-main-head">
+            <div><span>{t("目标主机")}</span><h2>{selected?.name || t("添加服务")}</h2></div>
+            <button onClick={onClose} aria-label={t("关闭设置")}><X size={18} /></button>
+          </header>
+          {selected && (
+            <nav className="asset-tabs">
+              {["status", "events", "documents"].map((item) => (
+                <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>
+                  {t(item === "status" ? "状态" : item === "events" ? "事件" : "文档")}
+                </button>
+              ))}
+            </nav>
+          )}
+          <div className="asset-content">
+            {(!selected || tab === "status") && (
+              <form className="asset-form" onSubmit={saveService}>
+                {selected && (
+                  <div className={`asset-health ${selected.status}`}>
+                    <span className={`asset-status-dot ${selected.status}`} />
+                    <div><strong>{t(assetStatusText[selected.status] || "待探测")}</strong><p>{selected.status_detail || t("待探测")}</p></div>
+                    <button type="button" onClick={checkNow} disabled={busy === "check"}><ArrowClockwise size={14} />{t("立即探测")}</button>
+                  </div>
+                )}
+                <div className="asset-form-grid">
+                  <label>{t("服务名称")}<input value={serviceForm.name} onChange={(e) => setServiceForm({...serviceForm, name:e.target.value})} required /></label>
+                  <label>{t("探测方式")}<select value={serviceForm.probe_type} onChange={(e) => setServiceForm({...serviceForm, probe_type:e.target.value})}><option value="process">{t("进程名称")}</option><option value="system_service">{t("系统服务")}</option><option value="http">{t("HTTP 地址")}</option><option value="tcp">{t("TCP 地址")}</option></select></label>
+                  <label className="wide">{t("探测目标")}<input value={serviceForm.probe_target} onChange={(e) => setServiceForm({...serviceForm, probe_target:e.target.value})} placeholder={serviceForm.probe_type === "tcp" ? "127.0.0.1:5432" : serviceForm.probe_type === "http" ? "http://127.0.0.1:8080/health" : "nginx"} required /></label>
+                  <label>{t("探测间隔（秒）")}<input type="number" min="15" value={serviceForm.interval_seconds} onChange={(e) => setServiceForm({...serviceForm, interval_seconds:Number(e.target.value)})} /></label>
+                  <label className="asset-check"><input type="checkbox" checked={serviceForm.enabled} onChange={(e) => setServiceForm({...serviceForm, enabled:e.target.checked})} />{t("启用自动监控")}</label>
+                  <label>{t("异常守护模式")}<select value={serviceForm.guard_mode} onChange={(e) => setServiceForm({...serviceForm, guard_mode:e.target.value})}><option value="diagnose">{t("只排查，不修复")}</option><option value="safe_repair">{t("按策略执行安全修复")}</option></select></label>
+                  <label className="wide">{t("守护策略")}<textarea value={serviceForm.guard_policy} onChange={(e) => setServiceForm({...serviceForm, guard_policy:e.target.value})} placeholder={t("说明异常时的排查重点、允许采取的安全措施和必须保留给人工决策的边界")} /><small>{serviceForm.guard_mode === "diagnose" ? t("异常时仅进行只读取证并生成事件。") : t("仅允许服务端判定为非高风险的最小修复；高风险操作仍转正式会话。")}</small></label>
+                  <label className="wide">{t("服务说明")}<textarea value={serviceForm.description} onChange={(e) => setServiceForm({...serviceForm, description:e.target.value})} /></label>
+                </div>
+                <div className="asset-actions">
+                  {selected && <button type="button" className="danger" onClick={removeService}><Trash size={14} />{t("删除服务")}</button>}
+                  {selected && activeSession && <button type="button" onClick={() => onMount(activeSession.asset_service?.id === selected.id ? null : selected)}>{activeSession.asset_service?.id === selected.id ? t("取消挂载") : t("挂载到会话")}</button>}
+                  <button className="primary" disabled={busy === "service"}>{t("保存服务")}</button>
+                </div>
+              </form>
+            )}
+            {selected && tab === "events" && (
+              <div className="asset-records"><form onSubmit={addEvent} className="asset-inline-form"><input placeholder={t("事件标题")} value={eventForm.title} onChange={(e) => setEventForm({...eventForm,title:e.target.value})} required /><select value={eventForm.severity} onChange={(e) => setEventForm({...eventForm,severity:e.target.value})}><option value="info">info</option><option value="warning">warning</option><option value="critical">critical</option></select><textarea placeholder={t("事件详情")} value={eventForm.content} onChange={(e) => setEventForm({...eventForm,content:e.target.value})} required /><button className="primary" disabled={busy === "event"}>{t("保存事件")}</button></form><div className="asset-record-list">{events.map((item) => <article key={item.id}><span className={`event-severity ${item.severity}`} /> <div><strong>{item.title}</strong><small>{item.source} · {timeOf(item.created_at)}</small><p>{item.content}</p></div><div>{(item.metadata?.follow_up_available || item.category?.startsWith("automatic_")) && <button className="asset-investigate" onClick={() => onCreateInvestigationSession(item)} title={t("创建排查会话")}><GitBranch size={13}/><span>{t("创建排查会话")}</span></button>}<button onClick={() => editEvent(item)}><PencilSimple size={13}/></button><button onClick={() => removeEvent(item)}><Trash size={13}/></button></div></article>)}{!events.length && <p className="asset-empty">{t("该服务尚无运维事件")}</p>}</div></div>
+            )}
+            {selected && tab === "documents" && (
+              <div className="asset-records"><div className="asset-upload"><div><strong>{t("文档")}</strong><p>Markdown、日志、配置、Office 与 PDF；文本会进入该服务的隔离关键词索引。</p></div><button className="primary" onClick={() => documentInput.current?.click()}><Paperclip size={14}/>{t("上传文档")}</button><input ref={documentInput} hidden type="file" onChange={(e) => { uploadDocument(e.target.files?.[0]); e.target.value=""; }} /></div><div className="asset-document-list">{documents.map((item) => <article key={item.id}><FileText size={20}/><div><strong>{item.name}</strong><small>{Math.ceil(item.size/1024)} KB · {timeOf(item.created_at)}</small></div><button onClick={() => previewDocument(item)} title={t("预览文档")} disabled={busy === "preview"}><Eye size={14}/></button><button onClick={() => downloadDocument(item)} title={t("下载文档")}><DownloadSimple size={14}/></button><button onClick={() => renameDocument(item)}><PencilSimple size={13}/></button><button onClick={() => removeDocument(item)}><Trash size={13}/></button></article>)}{!documents.length && <p className="asset-empty">{t("该服务尚无文档")}</p>}</div></div>
+            )}
+          </div>
+        </div>
+      </section>
+      {preview && (
+        <div className="document-preview-backdrop" onMouseDown={(event) => event.target === event.currentTarget && closePreview()}>
+          <section className="document-preview" role="dialog" aria-modal="true" aria-label={t("文档预览")}>
+            <header><div><span>{t("文档预览")}</span><strong>{preview.name}</strong></div><button onClick={closePreview} aria-label={t("关闭设置")}><X size={17}/></button></header>
+            <div className="document-preview-content">
+              {preview.kind === "image" ? <img src={preview.objectUrl} alt={preview.name}/> : preview.kind === "pdf" ? <iframe src={preview.objectUrl} title={preview.name}/> : <pre>{preview.content || t("暂无可预览的文本内容")}</pre>}
+            </div>
+            <footer><button onClick={() => downloadDocument(preview)}><DownloadSimple size={14}/>{t("下载文档")}</button></footer>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -733,7 +1335,10 @@ function normalizeMessage(m, index) {
       time: clockOf(m.created_at),
       status: approval.status,
     };
-  const content = m.content || m.message || m.output || "";
+  const rawContent = m.content || m.message || m.output || "";
+  const content = (m.role === "user" && m.metadata?.source === "ai_composer")
+    ? String(rawContent).trim()
+    : rawContent;
   return {
     ...m,
     id: m.id || m.message_id || `message-${index}`,
@@ -752,6 +1357,34 @@ function normalizeMessage(m, index) {
 }
 
 function mergeDurableWithLiveMessages(durable, current) {
+  const currentById = new Map(current.map((message) => [message.id, message]));
+  const mergedDurable = durable.map((message) => {
+    const live = currentById.get(message.id);
+    if (!live) return message;
+    const liveIsActive =
+      live.kind === "stream" ||
+      ["running", "thinking", "compacting", "finalizing", "paused"].includes(live.status);
+    const liveSegments = live.segments?.length || 0;
+    const durableSegments = message.segments?.length || 0;
+    const liveContent = String(live.content || "");
+    const durableContent = String(message.content || "");
+    if (
+      !liveIsActive &&
+      liveSegments <= durableSegments &&
+      liveContent.length <= durableContent.length
+    )
+      return message;
+    return {
+      ...message,
+      ...live,
+      id: message.id,
+      content:
+        liveContent.length >= durableContent.length ? liveContent : durableContent,
+      segments:
+        liveSegments >= durableSegments ? live.segments : message.segments,
+      metadata: { ...(message.metadata || {}), ...(live.metadata || {}) },
+    };
+  });
   const durableIds = new Set(durable.map((message) => message.id));
   const durableUserCounts = new Map();
   durable.forEach((message) => {
@@ -773,11 +1406,11 @@ function mergeDurableWithLiveMessages(durable, current) {
       }
       return (
         message.kind === "stream" ||
-        ["running", "thinking", "finalizing", "paused"].includes(message.status)
+        ["running", "thinking", "compacting", "finalizing", "paused"].includes(message.status)
       );
     },
   );
-  return [...durable, ...live];
+  return [...mergedDurable, ...live];
 }
 
 function optimisticUserKey(message) {
@@ -848,9 +1481,12 @@ function insertApprovalSegment(segments, event) {
     )
   )
     return next;
-  const toolIndex = next.findLastIndex((segment) => segment.type === "tool");
-  next.splice(toolIndex >= 0 ? toolIndex + 1 : next.length, 0, approvalSegment(event));
+  next.push(approvalSegment(event));
   return next;
+}
+
+function insertToolBeforePendingDecision(segments, toolSegment) {
+  return [...(segments || []), toolSegment];
 }
 
 function embedLegacyApprovalEvents(messages) {
@@ -924,11 +1560,53 @@ function normalizeApproval(data, envelope, runId, messageId) {
     id: `${runId}-${envelope.sequence || "paused"}`,
     run_id: runId,
     requirement_id: latestRequirement.id || null,
-    stream_message_id: messageId,
+    stream_message_id: data.message_id || messageId,
     sequence: envelope.sequence,
     risk,
     risk_label: riskLabels[risk],
     operations: [operation],
+  };
+}
+
+function normalizeFeedback(data, envelope, runId, messageId) {
+  const requirements = data.requirements?.length
+    ? data.requirements
+    : [data.requirement || {}];
+  const latest = [...requirements]
+    .reverse()
+    .find(
+      (item) =>
+        item.user_feedback_schema?.length && item.needs_user_feedback !== false,
+    );
+  if (!latest) return null;
+  const questions = latest.user_feedback_schema.map((question) => {
+    const options = [...(question.options || [])];
+    const customIndex = options.findIndex(
+      (option) =>
+        option.allow_text === true ||
+        /其他|其它|自定义|other|custom/i.test(option.label || ""),
+    );
+    const custom = customIndex >= 0 ? options.splice(customIndex, 1)[0] : {};
+    return {
+      ...question,
+      options: [
+        ...options.slice(0, 3),
+        {
+          ...custom,
+          label: "其他",
+          description: custom.description || "手动输入其他需求",
+          allow_text: true,
+        },
+      ],
+    };
+  });
+  return {
+    id: `${runId}-${latest.id || envelope.sequence || "feedback"}`,
+    run_id: runId,
+    requirement_id: latest.id || null,
+    stream_message_id: data.message_id || messageId,
+    sequence: envelope.sequence,
+    questions,
   };
 }
 
@@ -961,6 +1639,7 @@ export function App() {
   const [settingsPage, setSettingsPage] = useState("general");
   const [generalSettings, setGeneralSettings] = useState({
     language: "zh-CN",
+    theme: "dark",
     default_permission: "approval",
     host_refresh_interval: 5,
   });
@@ -978,6 +1657,7 @@ export function App() {
     api_key: "",
     thinking_mode: "auto",
     max_context_k: 128,
+    supports_vision: false,
     is_default: false,
   });
   const [input, setInput] = useState("");
@@ -997,8 +1677,13 @@ export function App() {
   const [toolbox, setToolbox] = useState([]);
   const [toolboxLoading, setToolboxLoading] = useState(false);
   const [toolboxSaving, setToolboxSaving] = useState("");
+  const [assetServices, setAssetServices] = useState([]);
+  const [assetCenter, setAssetCenter] = useState(null);
+  const [expandedAssetRailId, setExpandedAssetRailId] = useState(null);
   const [approvalBySession, setApprovalBySession] = useState({});
   const [approvalPending, setApprovalPending] = useState(null);
+  const [feedbackBySession, setFeedbackBySession] = useState({});
+  const [feedbackPending, setFeedbackPending] = useState(null);
   const fileRef = useRef(null);
   const textareaRef = useRef(null);
   const conversationRef = useRef(null);
@@ -1008,6 +1693,14 @@ export function App() {
   const activeSessionIdRef = useRef(null);
   const modelControlRef = useRef(null);
   const permissionControlRef = useRef(null);
+  const isComposingRef = useRef(false);
+  const feedbackSubmittingRef = useRef(new Set());
+
+  useEffect(() => {
+    const theme = generalSettings.theme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  }, [generalSettings.theme]);
   const messages = activeSession?.id
     ? messagesBySession[activeSession.id] || []
     : [];
@@ -1019,6 +1712,9 @@ export function App() {
     : null;
   const activeApproval = activeSession?.id
     ? approvalBySession[activeSession.id]
+    : null;
+  const activeFeedback = activeSession?.id
+    ? feedbackBySession[activeSession.id]
     : null;
   const attachmentSessionKey = activeSession?.id || "__new_session__";
   const attachment = pendingAttachmentBySession[attachmentSessionKey] || null;
@@ -1050,15 +1746,36 @@ export function App() {
     () =>
       Object.entries(
         toolbox.reduce(
-          (groups, tool) => ({
-            ...groups,
-            [tool.category]: [...(groups[tool.category] || []), tool],
-          }),
+          (groups, tool) => {
+            const labels = {
+              development: t("开发与编码"),
+              infrastructure: t("基础设施"),
+              filesystem: t("文件与工作区"),
+              web: t("网页与检索"),
+              data: t("数据分析"),
+              database: t("数据库"),
+            };
+            const category = labels[tool.category] || tool.category || t("其他工具");
+            return { ...groups, [category]: [...(groups[category] || []), tool] };
+          },
           {},
         ),
       ),
-    [toolbox],
+    [t, toolbox],
   );
+
+  const refreshAssets = useCallback(async () => {
+    const suffix = runtime.hostId ? `?host_id=${encodeURIComponent(runtime.hostId)}` : "";
+    const data = await api(`/api/quickops/assets/services${suffix}`);
+    const items = listFrom(data, "services");
+    setAssetServices(items);
+    setAssetCenter((current) =>
+      current?.service
+        ? { ...current, service: items.find((item) => item.id === current.service.id) || null }
+        : current,
+    );
+    return items;
+  }, [runtime.hostId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1221,6 +1938,12 @@ export function App() {
     };
   }, [auth.authenticated, refreshBootstrap, refreshModels, refreshSessions, refreshSettings]);
   useEffect(() => {
+    if (!auth.authenticated) return undefined;
+    refreshAssets().catch(() => {});
+    const timer = window.setInterval(() => refreshAssets().catch(() => {}), 15000);
+    return () => window.clearInterval(timer);
+  }, [auth.authenticated, refreshAssets]);
+  useEffect(() => {
     if (auth.authenticated && settingsOpen) refreshSettings().catch(() => {});
   }, [auth.authenticated, refreshSettings, settingsOpen]);
   useEffect(() => {
@@ -1276,6 +1999,10 @@ export function App() {
         models.find((model) => model.is_default) ||
         fallbackModel,
     );
+    // Cards are derived state of the currently active run. Clear stale in-memory state first;
+    // the active-runs replay below will restore only the latest unresolved requirement.
+    setApprovalBySession((all) => ({ ...all, [session.id]: null }));
+    setFeedbackBySession((all) => ({ ...all, [session.id]: null }));
     try {
       const data = await api(
         `/api/quickops/sessions/${encodeURIComponent(session.id)}/messages`,
@@ -1286,6 +2013,52 @@ export function App() {
       updateSessionMessages(session.id, (current) =>
         mergeDurableWithLiveMessages(durableMessages, current),
       );
+      const activeData = await api(
+        `/api/quickops/sessions/${encodeURIComponent(session.id)}/active-runs`,
+      );
+      const activeRun = listFrom(activeData, "runs")[0];
+      if (activeRun && !streamsRef.current.has(activeRun.id)) {
+        const liveMessageId =
+          activeRun.stream_message_id || `restored-stream-${activeRun.id}-${Date.now()}`;
+        setRunningBySession((running) => ({ ...running, [session.id]: true }));
+        setActiveRunBySession((runs) => ({ ...runs, [session.id]: activeRun.id }));
+        updateSessionMessages(session.id, (items) => {
+          const existing = items.find((item) => item.id === liveMessageId);
+          if (existing)
+            return items.map((item) =>
+              item.id === liveMessageId
+                ? { ...item, status: "thinking", phase: "正在恢复运行状态" }
+                : item,
+            );
+          return [
+            ...items.filter(
+              (item) =>
+                !(
+                  item.run_id === activeRun.id &&
+                  (item.kind === "stream" || ["running", "thinking", "finalizing"].includes(item.status))
+                ),
+            ),
+            {
+            id: liveMessageId,
+            run_id: activeRun.id,
+            role: "assistant",
+            kind: "stream",
+            time: clockOf(activeRun.created_at),
+            status: "thinking",
+            phase: "正在恢复运行状态",
+            content: "",
+            tools: [],
+            segments: [],
+            },
+          ];
+        });
+        connectRunStream(
+          session.id,
+          activeRun.id,
+          liveMessageId,
+          activeRun.resume_after_sequence || undefined,
+        );
+      }
     } catch (error) {
       notify(error.message);
     }
@@ -1303,6 +2076,49 @@ export function App() {
         })),
       )
       .catch(() => {});
+  };
+
+  const mountAsset = async (service) => {
+    if (!activeSession?.id) {
+      notify(t("请先创建会话"));
+      return;
+    }
+    try {
+      const data = await api(
+        `/api/quickops/sessions/${encodeURIComponent(activeSession.id)}/asset`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ service_id: service?.id || null }),
+        },
+      );
+      const updated = normalizeSession(data.session);
+      setActiveSession(updated);
+      setSessions((items) =>
+        items.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      notify(t(service ? "已挂载服务资产" : "已取消挂载"));
+    } catch (error) {
+      notify(error.message);
+    }
+  };
+
+  const createInvestigationSession = async (event) => {
+    try {
+      const data = await api(
+        `/api/quickops/assets/events/${encodeURIComponent(event.id)}/session`,
+        { method: "POST" },
+      );
+      const session = normalizeSession(data.session || data);
+      setSessions((items) => [
+        session,
+        ...items.filter((item) => item.id !== session.id),
+      ]);
+      setAssetCenter(null);
+      await loadSession(session);
+      notify(t("已从运维事件创建排查会话"));
+    } catch (error) {
+      notify(error.message);
+    }
   };
 
   const newSession = async () => {
@@ -1377,6 +2193,9 @@ export function App() {
     element.style.height = `${Math.min(element.scrollHeight, 120)}px`;
     element.style.overflowY = element.scrollHeight > 120 ? "auto" : "hidden";
   };
+  useLayoutEffect(() => {
+    if (textareaRef.current) resizeTextarea(textareaRef.current);
+  }, [input, inputMode, attachment]);
   const resetCommandHistoryCursor = (sessionId = activeSession?.id) => {
     if (!sessionId) return;
     commandHistoryRef.current[sessionId] = { index: null, draft: "" };
@@ -1460,6 +2279,11 @@ export function App() {
           ? { ...all, [sessionId]: null }
           : all,
       );
+      setFeedbackBySession((all) =>
+        all[sessionId]?.run_id === runId
+          ? { ...all, [sessionId]: null }
+          : all,
+      );
       const source = streamsRef.current.get(runId);
       if (source) source.close();
       streamsRef.current.delete(runId);
@@ -1515,17 +2339,60 @@ export function App() {
           type === "reasoning_completed" || type === "thinking_completed";
         const isModelStarted = type === "model_started";
         const isModelCompleted = type === "model_completed";
+        const isCompactionStarted = type === "context_compaction_started";
+        const isCompactionCompleted = type === "context_compaction_completed";
+        const isCompactionFailed = type === "context_compaction_failed";
         if (type.includes("paused")) {
-          setApprovalBySession((all) => ({
-            ...all,
-            [sessionId]: normalizeApproval(data, envelope, runId, messageId),
-          }));
+          const feedback = normalizeFeedback(data, envelope, runId, messageId);
+          if (feedback) {
+            setFeedbackBySession((all) => ({ ...all, [sessionId]: feedback }));
+            setApprovalBySession((all) => ({ ...all, [sessionId]: null }));
+          } else {
+            setApprovalBySession((all) => ({
+              ...all,
+              [sessionId]: normalizeApproval(data, envelope, runId, messageId),
+            }));
+            setFeedbackBySession((all) => ({ ...all, [sessionId]: null }));
+          }
           updateSessionMessages(sessionId, (items) =>
-            items.map((item) =>
-              item.id === messageId
-                ? { ...item, status: "paused", phase: "等待执行审批" }
-                : item,
-            ),
+            (() => {
+              const target = items.find((item) => item.id === messageId);
+              if (!target) return items;
+              const next = data.message_id
+                ? {
+                    ...target,
+                    id: data.message_id,
+                    kind: "runtime",
+                    status: "paused",
+                    phase: feedback ? "等待你的选择" : "等待执行审批",
+                    content: data.content ?? target.content,
+                    tools: data.tools || target.tools,
+                    segments: reconcileMessageSegments(
+                      data.segments || target.segments,
+                      data.content ?? target.content,
+                    ),
+                    time: data.created_at ? clockOf(data.created_at) : target.time,
+                  }
+                : {
+                    ...target,
+                    status: "paused",
+                    phase: feedback ? "等待你的选择" : "等待执行审批",
+                  };
+              const durableIndex = data.message_id
+                ? items.findIndex(
+                    (item) => item.id === data.message_id && item.id !== messageId,
+                  )
+                : -1;
+              if (durableIndex < 0)
+                return items.map((item) => (item.id === messageId ? next : item));
+              return items
+                .filter((item) => item.id !== messageId)
+                .map((item) =>
+                  item.id === data.message_id
+                    ? { ...item, ...next, id: data.message_id }
+                    : item,
+                );
+            })(),
           );
           source.close();
           streamsRef.current.delete(runId);
@@ -1555,11 +2422,13 @@ export function App() {
             if (isRunFailed)
               return {
                 ...item,
+                id: data.message_id || item.id,
                 kind: "runtime",
                 status: "failed",
                 phase: "",
-                content:
-                  data.error || data.message || item.content || "运行失败",
+                content: data.content || data.error || data.message || item.content || "运行失败",
+                time: data.created_at ? clockOf(data.created_at) : item.time,
+                segments: data.segments || item.segments,
               };
             if (isRunCancelled)
               return {
@@ -1569,6 +2438,25 @@ export function App() {
                 phase: "",
                 content:
                   item.content || data.message || "回复已由操作员中止。",
+              };
+            if (isCompactionStarted)
+              return {
+                ...item,
+                status: "compacting",
+                phase: data.label || "正在压缩会话上下文",
+              };
+            if (isCompactionCompleted)
+              return {
+                ...item,
+                status: "running",
+                phase: data.label || "上下文压缩完成",
+              };
+            if (isCompactionFailed)
+              return {
+                ...item,
+                status: "running",
+                phase:
+                  data.label || "上下文压缩失败，正在保留原上下文继续",
               };
             if (type === "approval.resolved")
               return {
@@ -1596,10 +2484,11 @@ export function App() {
                     result: "执行中…",
                   },
                 ],
-                segments: [
-                  ...(item.segments || []),
-                  { type: "tool", status: "running", tool: startedTool },
-                ],
+                segments: insertToolBeforePendingDecision(item.segments, {
+                  type: "tool",
+                  status: "running",
+                  tool: startedTool,
+                }),
               };
             }
             if (
@@ -1652,13 +2541,7 @@ export function App() {
                     tool: completedTool,
                   };
                   if (segmentIndex < 0) {
-                    let insertionIndex = segments.length;
-                    while (
-                      insertionIndex > 0 &&
-                      segments[insertionIndex - 1]?.type === "approval"
-                    )
-                      insertionIndex -= 1;
-                    segments.splice(insertionIndex, 0, completedSegment);
+                    segments.push(completedSegment);
                   }
                   else
                     segments[segmentIndex] = {
@@ -1677,6 +2560,22 @@ export function App() {
               return { ...item, status: "running", phase: "正在生成回复" };
             if (isModelCompleted)
               return { ...item, status: "finalizing", phase: "" };
+            if (type === "feedback_resolved")
+              return {
+                ...item,
+                status: "thinking",
+                phase: "正在思考",
+                segments: [
+                  ...(item.segments || []),
+                  ...((item.segments || []).some(
+                    (segment) =>
+                      segment.type === "feedback" &&
+                      segment.content === data.content,
+                  )
+                    ? []
+                    : [{ type: "feedback", content: data.content || "用户已提交选择" }]),
+                ],
+              };
             if (type.includes("reasoning") || type.includes("thinking"))
               return {
                 ...item,
@@ -1732,11 +2631,15 @@ export function App() {
         "reasoning.completed",
         "model.started",
         "model.completed",
+        "context.compaction.started",
+        "context.compaction.completed",
+        "context.compaction.failed",
         "content.delta",
         "content",
         "tool.started",
         "tool.completed",
         "approval.resolved",
+        "feedback.resolved",
         "run.paused",
         "run.completed",
         "run.failed",
@@ -1796,6 +2699,7 @@ export function App() {
       }
       setRunningBySession((running) => ({ ...running, [session.id]: true }));
       let uploadedAttachment = null;
+      let uploadedAssetDocument = null;
       if (pendingAttachment) {
         const form = new FormData();
         form.append("upload", pendingAttachment, pendingAttachment.name);
@@ -1804,6 +2708,8 @@ export function App() {
           { method: "POST", body: form },
         );
         uploadedAttachment = uploaded.attachment;
+        uploadedAssetDocument = uploaded.asset_document || null;
+        setSessionAttachment(null, pendingAttachmentSessionKey);
       }
       const temporaryUserId = `u-${Date.now()}`;
       updateSessionMessages(session.id, (items) => [
@@ -1819,6 +2725,7 @@ export function App() {
             source:
               inputMode === "manual" ? "manual_composer" : "ai_composer",
             attachments: uploadedAttachment ? [uploadedAttachment] : [],
+            asset_document: uploadedAssetDocument,
           },
         },
       ]);
@@ -1835,6 +2742,7 @@ export function App() {
               session_id: session.id,
               user_id: "operator",
               model_id: selectedModel.id,
+              model_config_id: selectedModel.id,
               permission_mode: permission.apiId,
               attachment_ids: uploadedAttachment ? [uploadedAttachment.id] : [],
             };
@@ -1848,9 +2756,6 @@ export function App() {
         if (error.status === 202 || error.data?.approval_required)
           response = error.data;
         else throw error;
-      }
-      if (pendingAttachment) {
-        setSessionAttachment(null, pendingAttachmentSessionKey);
       }
       if (response?.user_message_id)
         updateSessionMessages(session.id, (items) =>
@@ -2118,6 +3023,57 @@ export function App() {
     }
   };
 
+  const answerFeedback = async (feedback, selections) => {
+    if (feedbackSubmittingRef.current.has(feedback.id)) return;
+    feedbackSubmittingRef.current.add(feedback.id);
+    setFeedbackPending(feedback.id);
+    const sessionId = activeSession?.id;
+    setFeedbackBySession((all) =>
+      all[sessionId]?.id === feedback.id
+        ? { ...all, [sessionId]: null }
+        : all,
+    );
+    try {
+      updateSessionMessages(sessionId, (items) => [
+        ...items.map((item) =>
+          item.id === feedback.stream_message_id
+            ? { ...item, status: "thinking", phase: "正在思考" }
+            : item,
+        ),
+      ]);
+      await api(
+        `/api/quickops/runs/${encodeURIComponent(feedback.run_id)}/feedback`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            requirement_id: feedback.requirement_id,
+            selections,
+          }),
+        },
+      );
+      connectRunStream(
+        sessionId,
+        feedback.run_id,
+        feedback.stream_message_id,
+        feedback.sequence,
+      );
+      notify(t("已选择，小维将继续"));
+    } catch (error) {
+      updateSessionMessages(sessionId, (items) =>
+        items.map((item) =>
+          item.id === feedback.stream_message_id
+            ? { ...item, status: "paused", phase: "等待你的选择" }
+            : item,
+        ),
+      );
+      setFeedbackBySession((all) => ({ ...all, [sessionId]: feedback }));
+      notify(error.message);
+    } finally {
+      feedbackSubmittingRef.current.delete(feedback.id);
+      setFeedbackPending(null);
+    }
+  };
+
   const selectPermission = async (option) => {
     if (!enabledModes.includes(option.id)) return;
     const previous = permission;
@@ -2267,6 +3223,7 @@ export function App() {
       api_key: "",
       thinking_mode: "auto",
       max_context_k: 128,
+      supports_vision: false,
       is_default: false,
     });
     setModelOpen(false);
@@ -2282,6 +3239,7 @@ export function App() {
       api_key: "",
       thinking_mode: model.thinking_mode || "auto",
       max_context_k: model.max_context_k || 128,
+      supports_vision: !!model.supports_vision,
       is_default: !!model.is_default,
     });
     openSettings("models");
@@ -2335,6 +3293,15 @@ export function App() {
         message.content || message.command || message.reason || "",
       );
       notify(t("消息已复制"));
+    } catch {
+      notify(t("复制失败，请检查浏览器权限"));
+    }
+  };
+  const copySessionId = async () => {
+    if (!activeSession?.id) return;
+    try {
+      await writeClipboardText(activeSession.id);
+      notify(t("会话 ID 已复制"));
     } catch {
       notify(t("复制失败，请检查浏览器权限"));
     }
@@ -2630,7 +3597,16 @@ export function App() {
               <span>{timeOf(activeSession?.updated_at, locale)}</span>
               <i />
               <span>{t("会话 ID：")}{activeSession?.id?.slice(-12) || t("未创建")}</span>
-              <Copy size={14} />
+              <button
+                type="button"
+                className="session-id-copy"
+                onClick={copySessionId}
+                aria-label={t("复制会话 ID")}
+                title={t("复制会话 ID")}
+                disabled={!activeSession?.id}
+              >
+                <Copy size={14} />
+              </button>
             </div>
           </div>
           <div className="head-actions">
@@ -2683,6 +3659,14 @@ export function App() {
           <div className="conversation-end" />
         </div>
         <div className="composer-wrap">
+          {activeFeedback && (
+            <UserChoicePrompt
+              feedback={activeFeedback}
+              onSubmit={answerFeedback}
+              pending={feedbackPending === activeFeedback.id}
+              t={t}
+            />
+          )}
           {activeApproval && (
             <ApprovalPrompt
               approval={activeApproval}
@@ -2737,6 +3721,18 @@ export function App() {
             )}
             {inputMode === "ai" && (
               <div className="composer-tools">
+                {activeSession?.asset_service && (
+                  <button
+                    className="mounted-asset-chip"
+                    onClick={() =>
+                      setAssetCenter({ service: activeSession.asset_service, tab: "status" })
+                    }
+                    title={t("上传文件将同时归档到已挂载服务的文档库")}
+                  >
+                    <HardDrives size={14} />
+                    {activeSession.asset_service.name}
+                  </button>
+                )}
                 <div className="model-control" ref={modelControlRef}>
                   <button
                     className="model-trigger"
@@ -2849,9 +3845,15 @@ export function App() {
                   notify(t("单个附件不能超过 25 MB"));
                   return;
                 }
+                if (file.type.startsWith("image/") && !selectedModel?.supports_vision) {
+                  e.target.value = "";
+                  notify(t("当前模型未启用图像理解能力"));
+                  return;
+                }
                 setSessionAttachment(file);
                 e.target.value = "";
               }}
+              accept="image/*,.md,.txt,.log,.csv,.json,.yaml,.yml,.xml,.ini,.conf,.pdf,.doc,.docx,.xls,.xlsx"
             />
             {inputMode === "manual" && (
               <div
@@ -2867,18 +3869,11 @@ export function App() {
             )}
             <div className="composer-input-area">
               {inputMode === "ai" && attachment && (
-                <div className="composer-attachment" title={attachment.name}>
-                  <FileText size={14} />
-                  <span>{attachment.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSessionAttachment(null)}
-                    title={t("移除附件")}
-                    aria-label={`${t("移除附件")} ${attachment.name}`}
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
+                <ComposerAttachment
+                  file={attachment}
+                  onRemove={() => setSessionAttachment(null)}
+                  t={t}
+                />
               )}
               <textarea
                 ref={textareaRef}
@@ -2888,7 +3883,46 @@ export function App() {
                   if (inputMode === "manual") resetCommandHistoryCursor();
                   resizeTextarea(e.currentTarget);
                 }}
+                onCompositionStart={() => {
+                  isComposingRef.current = true;
+                }}
+                onCompositionEnd={(e) => {
+                  isComposingRef.current = false;
+                  setInput(e.currentTarget.value);
+                  resizeTextarea(e.currentTarget);
+                }}
+                onPaste={(e) => {
+                  if (inputMode !== "ai") return;
+                  const image = [...(e.clipboardData?.items || [])].find(
+                    (item) => item.kind === "file" && item.type.startsWith("image/"),
+                  );
+                  if (!image) return;
+                  e.preventDefault();
+                  if (!selectedModel?.supports_vision) {
+                    notify(t("当前模型未启用图像理解能力"));
+                    return;
+                  }
+                  const source = image.getAsFile();
+                  if (!source) return;
+                  if (source.size > 25 * 1024 * 1024) {
+                    notify(t("单个附件不能超过 25 MB"));
+                    return;
+                  }
+                  const extension = source.type.split("/")[1]?.replace("jpeg", "jpg") || "png";
+                  const pasted = new File(
+                    [source],
+                    `pasted-image-${new Date().toISOString().replaceAll(":", "-")}.${extension}`,
+                    { type: source.type, lastModified: Date.now() },
+                  );
+                  setSessionAttachment(pasted);
+                }}
                 onKeyDown={(e) => {
+                  if (
+                    e.isComposing ||
+                    e.nativeEvent?.isComposing ||
+                    isComposingRef.current ||
+                    e.keyCode === 229
+                  ) return;
                   if (
                     inputMode === "manual" &&
                     !e.shiftKey &&
@@ -2998,6 +4032,54 @@ export function App() {
             width="45%"
           />
         </section>
+        <section className="context-section asset-rail-section">
+          <div className="asset-rail-head">
+            <h3>{t("主机资产")}</h3>
+            <button
+              onClick={() => setAssetCenter({ service: null, tab: "status" })}
+              title={t("添加服务")}
+              aria-label={t("添加服务")}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+          <div className="asset-rail-list">
+            {assetServices.map((service) => (
+              <article key={service.id} className={expandedAssetRailId === service.id ? "expanded" : ""}>
+                <button
+                  className="asset-rail-service"
+                  onClick={() => setExpandedAssetRailId((current) => current === service.id ? null : service.id)}
+                  aria-expanded={expandedAssetRailId === service.id}
+                >
+                  <span className={`asset-status-dot ${service.status}`} />
+                  <strong>{service.name}</strong>
+                  {activeSession?.asset_service?.id === service.id && (
+                      <em>{t("已挂载")}</em>
+                  )}
+                  <CaretDown size={12}/>
+                </button>
+                {expandedAssetRailId === service.id && <div className="asset-rail-actions">
+                  {["status", "events", "documents"].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setAssetCenter({ service, tab })}
+                    >
+                      {t(tab === "status" ? "状态" : tab === "events" ? "事件" : "文档")}
+                    </button>
+                  ))}
+                </div>}
+              </article>
+            ))}
+            {!assetServices.length && (
+              <button
+                className="asset-rail-empty"
+                onClick={() => setAssetCenter({ service: null, tab: "status" })}
+              >
+                <Plus size={15} /> {t("添加服务")}
+              </button>
+            )}
+          </div>
+        </section>
       </aside>
       {toast && (
         <div className="toast">
@@ -3092,6 +4174,13 @@ export function App() {
                       <option value="zh-CN">{t("简体中文")}</option>
                       <option value="en-US">English</option>
                     </select>
+                  </label>
+                  <label>
+                    {t("界面配色")}
+                    <div className="theme-selector" role="group" aria-label={t("界面配色")}>
+                      <button type="button" className={generalSettings.theme !== "light" ? "active" : ""} onClick={() => setGeneralSettings({...generalSettings, theme:"dark"})}><Moon size={15}/>{t("夜间")}</button>
+                      <button type="button" className={generalSettings.theme === "light" ? "active" : ""} onClick={() => setGeneralSettings({...generalSettings, theme:"light"})}><Sun size={15}/>{t("日间")}</button>
+                    </div>
                   </label>
                   <label>
                     {t("新会话默认权限")}
@@ -3290,6 +4379,14 @@ export function App() {
                     <label className="checkbox-label">
                       <input
                         type="checkbox"
+                        checked={modelForm.supports_vision}
+                        onChange={(e) => setModelForm({...modelForm, supports_vision:e.target.checked})}
+                      />
+                      {t("图像理解（多模态）")}
+                    </label>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
                         checked={modelForm.is_default}
                         onChange={(e) =>
                           setModelForm({
@@ -3334,7 +4431,12 @@ export function App() {
                           {tools.map((tool) => (
                             <article className={`toolbox-item ${!tool.available ? "unavailable" : ""}`} key={tool.id}>
                               <div>
-                                <strong>{tool.name}</strong>
+                                <div className="toolbox-title">
+                                  <strong>{tool.name}</strong>
+                                  {tool.usage_tier === "recommended" && (
+                                    <em className="tool-tier recommended">{t("推荐")}</em>
+                                  )}
+                                </div>
                                 <p>{tool.description || t("为小维提供对应的专业操作能力。")}</p>
                                 {!tool.available && <small>{tool.unavailable_reason}</small>}
                               </div>
@@ -3359,6 +4461,21 @@ export function App() {
             </div>
           </section>
         </div>
+      )}
+      {assetCenter && (
+        <AssetCenter
+          key={`${assetCenter.service?.id || "new"}-${assetCenter.tab}`}
+          assets={assetServices}
+          initialService={assetCenter.service}
+          initialTab={assetCenter.tab}
+          activeSession={activeSession}
+          onClose={() => setAssetCenter(null)}
+          onRefresh={refreshAssets}
+          onMount={mountAsset}
+          onCreateInvestigationSession={createInvestigationSession}
+          notify={notify}
+          t={t}
+        />
       )}
     </main>
   );

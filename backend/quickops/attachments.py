@@ -10,6 +10,13 @@ from typing import Any
 
 from agno.media import File
 
+IMAGE_MIME_SIGNATURES: tuple[tuple[str, tuple[bytes, ...]], ...] = (
+    ("image/png", (b"\x89PNG\r\n\x1a\n",)),
+    ("image/jpeg", (b"\xff\xd8\xff",)),
+    ("image/gif", (b"GIF87a", b"GIF89a")),
+    ("image/webp", (b"RIFF",)),
+)
+
 
 class AttachmentError(ValueError):
     pass
@@ -41,6 +48,19 @@ class SessionAttachmentStore:
             name = "attachment"
         return name[:255]
 
+    @staticmethod
+    def _validated_image_mime(content: bytes, declared_mime: str) -> str | None:
+        """Accept browser image uploads only when their bytes match a safe raster type."""
+        for mime_type, signatures in IMAGE_MIME_SIGNATURES:
+            if not any(content.startswith(signature) for signature in signatures):
+                continue
+            if mime_type == "image/webp" and content[8:12] != b"WEBP":
+                continue
+            return mime_type
+        if declared_mime.startswith("image/"):
+            raise AttachmentError("图片内容与文件类型不匹配，请上传 PNG、JPEG、GIF 或 WebP 图片")
+        return None
+
     def save(
         self,
         session_id: str,
@@ -66,7 +86,10 @@ class SessionAttachmentStore:
             or mimetypes.guess_type(safe_name)[0]
             or "application/octet-stream"
         )
-        if mime_type not in File.valid_mime_types():
+        image_mime = self._validated_image_mime(content, mime_type)
+        if image_mime:
+            mime_type = image_mime
+        elif mime_type not in File.valid_mime_types():
             try:
                 content.decode("utf-8")
                 mime_type = "text/plain"

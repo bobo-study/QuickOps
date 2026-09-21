@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -96,6 +98,7 @@ class ModelConfigRow(Base):
     api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     thinking_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="auto")
     max_context_k: Mapped[int] = mapped_column(Integer, nullable=False, default=128)
+    supports_vision: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -243,6 +246,104 @@ class TerminalSessionRow(Base):
     )
 
 
+class AssetServiceRow(Base):
+    __tablename__ = "quickops_asset_services"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    host_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    probe_type: Mapped[str] = mapped_column(String(24), nullable=False, default="process")
+    probe_target: Mapped[str] = mapped_column(String(1000), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    guard_mode: Mapped[str] = mapped_column(String(24), nullable=False, default="diagnose")
+    guard_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="unknown")
+    status_detail: Mapped[str] = mapped_column(Text, nullable=False, default="等待首次探测")
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "probe_type IN ('process','system_service','http','tcp')",
+            name="ck_quickops_asset_services_probe_type",
+        ),
+        CheckConstraint(
+            "status IN ('unknown','healthy','degraded','down')",
+            name="ck_quickops_asset_services_status",
+        ),
+        Index("ix_quickops_asset_services_host_name", "host_id", "name"),
+        Index("ix_quickops_asset_services_due", "enabled", "last_checked_at"),
+    )
+
+
+class AssetEventRow(Base):
+    __tablename__ = "quickops_asset_events"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    service_id: Mapped[str] = mapped_column(
+        ForeignKey("quickops_asset_services.id", ondelete="CASCADE"), nullable=False
+    )
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, default="info")
+    category: Mapped[str] = mapped_column(String(40), nullable=False, default="maintenance")
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="operator")
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "severity IN ('info','warning','critical')",
+            name="ck_quickops_asset_events_severity",
+        ),
+        CheckConstraint(
+            "source IN ('system','agent','operator')",
+            name="ck_quickops_asset_events_source",
+        ),
+        Index("ix_quickops_asset_events_service_created", "service_id", "created_at"),
+    )
+
+
+class AssetDocumentRow(Base):
+    __tablename__ = "quickops_asset_documents"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    service_id: Mapped[str] = mapped_column(
+        ForeignKey("quickops_asset_services.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(200), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    path: Mapped[str] = mapped_column(String(2000), nullable=False)
+    extracted_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    source_session_id: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        Index("ix_quickops_asset_documents_service_created", "service_id", "created_at"),
+    )
+
+
+class SessionAssetMountRow(Base):
+    __tablename__ = "quickops_session_asset_mounts"
+
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("quickops_sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    service_id: Mapped[str] = mapped_column(
+        ForeignKey("quickops_asset_services.id", ondelete="CASCADE"), nullable=False
+    )
+    mounted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (Index("ix_quickops_session_asset_service", "service_id"),)
+
+
 class StorageError(ValueError):
     """Raised when a storage request violates a QuickOps invariant."""
 
@@ -280,6 +381,27 @@ class QuickOpsStorage:
                     "ALTER TABLE quickops_model_configs "
                     "ADD COLUMN max_context_k INTEGER NOT NULL DEFAULT 128"
                 )
+            if "supports_vision" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quickops_model_configs "
+                    "ADD COLUMN supports_vision BOOLEAN NOT NULL DEFAULT 0"
+                )
+            asset_columns = {
+                row[1]
+                for row in connection.exec_driver_sql(
+                    "PRAGMA table_info(quickops_asset_services)"
+                ).fetchall()
+            }
+            if "guard_mode" not in asset_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quickops_asset_services "
+                    "ADD COLUMN guard_mode VARCHAR(24) NOT NULL DEFAULT 'diagnose'"
+                )
+            if "guard_policy" not in asset_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quickops_asset_services "
+                    "ADD COLUMN guard_policy TEXT NOT NULL DEFAULT ''"
+                )
         # Provider credentials may live in this database; keep the file owner-only by default.
         path.chmod(0o600)
 
@@ -293,8 +415,7 @@ class QuickOpsStorage:
         """
         with self.engine.connect() as connection:
             table_sql = connection.exec_driver_sql(
-                "SELECT sql FROM sqlite_master WHERE type='table' "
-                "AND name='quickops_agent_runs'"
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='quickops_agent_runs'"
             ).scalar_one_or_none()
         if not table_sql or "'paused'" in table_sql:
             return
@@ -408,6 +529,7 @@ class QuickOpsStorage:
             "has_api_key": bool(row.api_key),
             "thinking_mode": row.thinking_mode,
             "max_context_k": row.max_context_k,
+            "supports_vision": row.supports_vision,
             "is_default": row.is_default,
             "enabled": row.enabled,
             "can_delete": False,
@@ -443,6 +565,24 @@ class QuickOpsStorage:
     @staticmethod
     def _terminal_dict(row: TerminalSessionRow) -> dict[str, Any]:
         return {column.name: getattr(row, column.name) for column in row.__table__.columns}
+
+    @staticmethod
+    def _asset_service_dict(row: AssetServiceRow) -> dict[str, Any]:
+        return {column.name: getattr(row, column.name) for column in row.__table__.columns}
+
+    @staticmethod
+    def _asset_event_dict(row: AssetEventRow) -> dict[str, Any]:
+        result = {column.name: getattr(row, column.name) for column in row.__table__.columns}
+        result["metadata"] = result.pop("metadata_json")
+        return result
+
+    @staticmethod
+    def _asset_document_dict(row: AssetDocumentRow, *, public: bool = True) -> dict[str, Any]:
+        result = {column.name: getattr(row, column.name) for column in row.__table__.columns}
+        if public:
+            result.pop("path", None)
+            result.pop("extracted_text", None)
+        return result
 
     def create_session(
         self,
@@ -563,6 +703,342 @@ class QuickOpsStorage:
             db.commit()
             return True
 
+    def create_asset_service(
+        self,
+        *,
+        host_id: str,
+        name: str,
+        probe_type: str,
+        probe_target: str,
+        description: str = "",
+        interval_seconds: int = 60,
+        enabled: bool = True,
+        guard_mode: str = "diagnose",
+        guard_policy: str = "",
+    ) -> dict[str, Any]:
+        if probe_type not in {"process", "system_service", "http", "tcp"}:
+            raise StorageError("Unsupported asset probe type")
+        interval_seconds = min(max(int(interval_seconds), 15), 86_400)
+        if guard_mode not in {"diagnose", "safe_repair"}:
+            raise StorageError("Unsupported asset guard mode")
+        row = AssetServiceRow(
+            host_id=self._required(host_id, "host_id", 200),
+            name=self._required(name, "name", 200),
+            description=description.strip()[:20_000],
+            probe_type=probe_type,
+            probe_target=self._required(probe_target, "probe_target", 1000),
+            interval_seconds=interval_seconds,
+            enabled=bool(enabled),
+            guard_mode=guard_mode,
+            guard_policy=guard_policy.strip()[:20_000],
+        )
+        with Session(self.engine) as db:
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return self._asset_service_dict(row)
+
+    def get_asset_service(self, service_id: str) -> dict[str, Any] | None:
+        with Session(self.engine) as db:
+            row = db.get(AssetServiceRow, service_id)
+            return self._asset_service_dict(row) if row else None
+
+    def list_asset_services(self, host_id: str | None = None) -> list[dict[str, Any]]:
+        query = select(AssetServiceRow)
+        if host_id:
+            query = query.where(AssetServiceRow.host_id == host_id)
+        query = query.order_by(AssetServiceRow.name.asc())
+        with Session(self.engine) as db:
+            return [self._asset_service_dict(row) for row in db.scalars(query).all()]
+
+    def update_asset_service(self, service_id: str, **changes: Any) -> dict[str, Any] | None:
+        allowed = {
+            "name",
+            "description",
+            "probe_type",
+            "probe_target",
+            "interval_seconds",
+            "enabled",
+            "guard_mode",
+            "guard_policy",
+            "status",
+            "status_detail",
+            "last_checked_at",
+        }
+        unknown = changes.keys() - allowed
+        if unknown:
+            raise StorageError(f"Unsupported asset fields: {', '.join(sorted(unknown))}")
+        with Session(self.engine) as db:
+            row = db.get(AssetServiceRow, service_id)
+            if row is None:
+                return None
+            for key, value in changes.items():
+                if key == "name":
+                    value = self._required(str(value), key, 200)
+                elif key == "probe_target":
+                    value = self._required(str(value), key, 1000)
+                elif key == "probe_type" and value not in {
+                    "process",
+                    "system_service",
+                    "http",
+                    "tcp",
+                }:
+                    raise StorageError("Unsupported asset probe type")
+                elif key == "status" and value not in {"unknown", "healthy", "degraded", "down"}:
+                    raise StorageError("Unsupported asset status")
+                elif key == "guard_mode" and value not in {"diagnose", "safe_repair"}:
+                    raise StorageError("Unsupported asset guard mode")
+                elif key == "interval_seconds":
+                    value = min(max(int(value), 15), 86_400)
+                elif key in {"description", "status_detail", "guard_policy"}:
+                    value = str(value).strip()[:50_000]
+                setattr(row, key, value)
+            row.updated_at = _now()
+            db.commit()
+            db.refresh(row)
+            return self._asset_service_dict(row)
+
+    def delete_asset_service(self, service_id: str) -> bool:
+        with Session(self.engine) as db:
+            row = db.get(AssetServiceRow, service_id)
+            if row is None:
+                return False
+            db.delete(row)
+            db.commit()
+            return True
+
+    def mount_session_asset(self, session_id: str, service_id: str | None) -> dict[str, Any] | None:
+        with Session(self.engine) as db:
+            if db.get(SessionRow, session_id) is None:
+                raise StorageError("Session does not exist")
+            row = db.get(SessionAssetMountRow, session_id)
+            if service_id is None:
+                if row:
+                    db.delete(row)
+                    db.commit()
+                return None
+            if db.get(AssetServiceRow, service_id) is None:
+                raise StorageError("Asset service does not exist")
+            if row is None:
+                row = SessionAssetMountRow(session_id=session_id, service_id=service_id)
+                db.add(row)
+            else:
+                row.service_id = service_id
+                row.mounted_at = _now()
+            db.commit()
+            service = db.get(AssetServiceRow, service_id)
+            return self._asset_service_dict(service)
+
+    def get_session_asset(self, session_id: str) -> dict[str, Any] | None:
+        with Session(self.engine) as db:
+            mount = db.get(SessionAssetMountRow, session_id)
+            if mount is None:
+                return None
+            service = db.get(AssetServiceRow, mount.service_id)
+            return self._asset_service_dict(service) if service else None
+
+    def create_asset_event(
+        self,
+        service_id: str,
+        *,
+        title: str,
+        content: str,
+        severity: str = "info",
+        category: str = "maintenance",
+        source: str = "operator",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if severity not in {"info", "warning", "critical"}:
+            raise StorageError("Unsupported event severity")
+        if source not in {"system", "agent", "operator"}:
+            raise StorageError("Unsupported event source")
+        row = AssetEventRow(
+            service_id=service_id,
+            title=self._required(title, "title", 300),
+            content=self._required(content, "content", 200_000),
+            severity=severity,
+            category=self._required(category, "category", 40),
+            source=source,
+            metadata_json=dict(metadata or {}),
+        )
+        with Session(self.engine) as db:
+            if db.get(AssetServiceRow, service_id) is None:
+                raise StorageError("Asset service does not exist")
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return self._asset_event_dict(row)
+
+    def list_asset_events(self, service_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
+        query = (
+            select(AssetEventRow)
+            .where(AssetEventRow.service_id == service_id)
+            .order_by(AssetEventRow.created_at.desc())
+            .limit(min(max(limit, 1), 1000))
+        )
+        with Session(self.engine) as db:
+            return [self._asset_event_dict(row) for row in db.scalars(query).all()]
+
+    def get_asset_event(self, event_id: str) -> dict[str, Any] | None:
+        with Session(self.engine) as db:
+            row = db.get(AssetEventRow, event_id)
+            return self._asset_event_dict(row) if row else None
+
+    def update_asset_event(self, event_id: str, **changes: Any) -> dict[str, Any] | None:
+        allowed = {"title", "content", "severity", "category"}
+        if changes.keys() - allowed:
+            raise StorageError("Unsupported event fields")
+        with Session(self.engine) as db:
+            row = db.get(AssetEventRow, event_id)
+            if row is None:
+                return None
+            for key, value in changes.items():
+                if key == "severity" and value not in {"info", "warning", "critical"}:
+                    raise StorageError("Unsupported event severity")
+                maximum = 300 if key == "title" else 200_000 if key == "content" else 40
+                setattr(row, key, self._required(str(value), key, maximum))
+            row.updated_at = _now()
+            db.commit()
+            db.refresh(row)
+            return self._asset_event_dict(row)
+
+    def delete_asset_event(self, event_id: str) -> bool:
+        with Session(self.engine) as db:
+            row = db.get(AssetEventRow, event_id)
+            if row is None:
+                return False
+            db.delete(row)
+            db.commit()
+            return True
+
+    def create_asset_document(
+        self,
+        service_id: str,
+        *,
+        name: str,
+        mime_type: str,
+        size: int,
+        path: str,
+        extracted_text: str = "",
+        description: str = "",
+        source_session_id: str | None = None,
+    ) -> dict[str, Any]:
+        row = AssetDocumentRow(
+            service_id=service_id,
+            name=self._required(name, "name", 255),
+            mime_type=self._required(mime_type, "mime_type", 200),
+            size=max(0, int(size)),
+            path=self._required(path, "path", 2000),
+            extracted_text=extracted_text[:2_000_000],
+            description=description.strip()[:20_000],
+            source_session_id=source_session_id,
+        )
+        with Session(self.engine) as db:
+            if db.get(AssetServiceRow, service_id) is None:
+                raise StorageError("Asset service does not exist")
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return self._asset_document_dict(row)
+
+    def get_asset_document(self, document_id: str, *, public: bool = True) -> dict[str, Any] | None:
+        with Session(self.engine) as db:
+            row = db.get(AssetDocumentRow, document_id)
+            return self._asset_document_dict(row, public=public) if row else None
+
+    def list_asset_documents(self, service_id: str) -> list[dict[str, Any]]:
+        query = (
+            select(AssetDocumentRow)
+            .where(AssetDocumentRow.service_id == service_id)
+            .order_by(AssetDocumentRow.created_at.desc())
+        )
+        with Session(self.engine) as db:
+            return [self._asset_document_dict(row) for row in db.scalars(query).all()]
+
+    def update_asset_document(self, document_id: str, **changes: Any) -> dict[str, Any] | None:
+        allowed = {"name", "description", "extracted_text"}
+        if changes.keys() - allowed:
+            raise StorageError("Unsupported document fields")
+        with Session(self.engine) as db:
+            row = db.get(AssetDocumentRow, document_id)
+            if row is None:
+                return None
+            for key, value in changes.items():
+                maximum = 255 if key == "name" else 2_000_000
+                setattr(row, key, self._required(str(value), key, maximum))
+            row.updated_at = _now()
+            db.commit()
+            db.refresh(row)
+            return self._asset_document_dict(row)
+
+    def delete_asset_document(self, document_id: str) -> dict[str, Any] | None:
+        with Session(self.engine) as db:
+            row = db.get(AssetDocumentRow, document_id)
+            if row is None:
+                return None
+            result = self._asset_document_dict(row, public=False)
+            db.delete(row)
+            db.commit()
+            return result
+
+    def search_asset_knowledge(
+        self, service_id: str, query: str, *, limit: int = 8
+    ) -> list[dict[str, Any]]:
+        """Per-asset lexical retrieval with deterministic scoring and no embedding model."""
+        normalized = query.casefold()
+        latin_terms = re.findall(r"[a-z0-9_./:@-]+", normalized)
+        cjk_terms: list[str] = []
+        for span in re.findall(r"[\u3400-\u9fff]+", normalized):
+            cjk_terms.append(span)
+            if len(span) > 2:
+                cjk_terms.extend(span[index : index + 2] for index in range(len(span) - 1))
+        terms = list(dict.fromkeys([*latin_terms, *cjk_terms]))[:40]
+        if not terms:
+            return []
+        candidates: list[dict[str, Any]] = []
+        with Session(self.engine) as db:
+            events = db.scalars(
+                select(AssetEventRow).where(AssetEventRow.service_id == service_id)
+            ).all()
+            for row in events:
+                event_item = self._asset_event_dict(row)
+                title = row.title.casefold()
+                content = row.content.casefold()
+                score = sum(3 * title.count(term) + content.count(term) for term in terms)
+                if score:
+                    candidates.append({"kind": "event", "score": score, **event_item})
+            documents = db.scalars(
+                select(AssetDocumentRow).where(AssetDocumentRow.service_id == service_id)
+            ).all()
+            for row in documents:
+                heading = f"{row.name}\n{row.description}".casefold()
+                content = row.extracted_text
+                content_haystack = content.casefold()
+                score = sum(
+                    3 * heading.count(term) + content_haystack.count(term) for term in terms
+                )
+                if score:
+                    first = min(
+                        (content_haystack.find(term) for term in terms if term in content_haystack),
+                        default=0,
+                    )
+                    start = max(0, first - 240)
+                    candidates.append(
+                        {
+                            "kind": "document",
+                            "score": score,
+                            "id": row.id,
+                            "name": row.name,
+                            "description": row.description,
+                            "excerpt": content[start : start + 1200],
+                            "created_at": row.created_at,
+                        }
+                    )
+        candidates.sort(
+            key=lambda item: (item["score"], item.get("created_at") or _now()), reverse=True
+        )
+        return candidates[: min(max(limit, 1), 30)]
+
     def append_message(
         self,
         session_id: str,
@@ -571,6 +1047,7 @@ class QuickOpsStorage:
         content: str,
         message_type: str = "chat",
         metadata: Mapping[str, Any] | None = None,
+        created_at: datetime | None = None,
     ) -> dict[str, Any]:
         if role not in {"user", "assistant", "system", "tool"}:
             raise StorageError("Unsupported message role")
@@ -588,9 +1065,33 @@ class QuickOpsStorage:
                 content=content,
                 message_type=message_type,
                 metadata_json=dict(metadata or {}),
+                created_at=created_at or _now(),
             )
             parent.updated_at = parent.last_activity_at = _now()
             db.add(row)
+            db.commit()
+            db.refresh(row)
+            return self._message_dict(row)
+
+    def update_message(
+        self,
+        message_id: str,
+        *,
+        content: str,
+        metadata: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Replace one durable message body while preserving its timeline position."""
+        if not content or len(content) > 2_000_000:
+            raise StorageError("content must contain 1-2000000 characters")
+        with Session(self.engine) as db:
+            row = db.get(MessageRow, message_id)
+            if row is None:
+                raise StorageError("Message does not exist")
+            parent = db.get(SessionRow, row.session_id)
+            row.content = content
+            row.metadata_json = dict(metadata)
+            if parent is not None:
+                parent.updated_at = parent.last_activity_at = _now()
             db.commit()
             db.refresh(row)
             return self._message_dict(row)
@@ -646,7 +1147,7 @@ class QuickOpsStorage:
         through_message_id: str,
         *,
         child_session_id: str,
-        title: str = "分支会话",
+        title: str | None = None,
         user_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a session and copy history through one message, inclusively."""
@@ -660,6 +1161,25 @@ class QuickOpsStorage:
                 raise StorageError("Branch message does not belong to the parent session")
             if db.get(SessionRow, child_session_id):
                 raise StorageError("Child session already exists")
+
+            if title is None:
+                child_titles = db.scalars(
+                    select(SessionRow.title)
+                    .join(
+                        SessionBranchRow,
+                        SessionBranchRow.child_session_id == SessionRow.id,
+                    )
+                    .where(SessionBranchRow.parent_session_id == parent_session_id)
+                ).all()
+                used_titles = set(child_titles)
+                branch_number = 1
+                suffix = f"（{branch_number}）"
+                candidate = f"{parent.title[: 200 - len(suffix)]}{suffix}"
+                while candidate in used_titles:
+                    branch_number += 1
+                    suffix = f"（{branch_number}）"
+                    candidate = f"{parent.title[: 200 - len(suffix)]}{suffix}"
+                title = candidate
 
             child = SessionRow(
                 id=child_session_id,
@@ -702,6 +1222,14 @@ class QuickOpsStorage:
                     through_message_id=through_message_id,
                 )
             )
+            parent_mount = db.get(SessionAssetMountRow, parent_session_id)
+            if parent_mount:
+                db.add(
+                    SessionAssetMountRow(
+                        session_id=child_session_id,
+                        service_id=parent_mount.service_id,
+                    )
+                )
             db.commit()
             db.refresh(child)
             result = self._session_dict(child)
@@ -748,10 +1276,7 @@ class QuickOpsStorage:
                 .where(
                     MessageRow.session_id == session_id,
                     (MessageRow.created_at > target.created_at)
-                    | (
-                        (MessageRow.created_at == target.created_at)
-                        & (MessageRow.id >= target.id)
-                    ),
+                    | ((MessageRow.created_at == target.created_at) & (MessageRow.id >= target.id)),
                 )
                 .order_by(MessageRow.created_at.asc(), MessageRow.id.asc())
             ).all()
@@ -888,6 +1413,7 @@ class QuickOpsStorage:
         api_key: str | None = None,
         thinking_mode: str = "auto",
         max_context_k: int = 128,
+        supports_vision: bool = False,
         is_default: bool = False,
         enabled: bool = True,
     ) -> dict[str, Any]:
@@ -917,6 +1443,7 @@ class QuickOpsStorage:
             row.enabled = enabled
             row.thinking_mode = thinking_mode
             row.max_context_k = int(max_context_k)
+            row.supports_vision = bool(supports_vision)
             row.updated_at = _now()
             if is_default:
                 for other in db.scalars(
@@ -953,6 +1480,7 @@ class QuickOpsStorage:
                 "provider": row.provider,
                 "thinking_mode": row.thinking_mode,
                 "max_context_k": row.max_context_k,
+                "supports_vision": row.supports_vision,
             }
 
     def delete_model_config(self, config_id: str) -> bool:
@@ -1091,10 +1619,18 @@ class QuickOpsStorage:
         target: str | None = None,
         details: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        normalized_action = self._required(action, "action", 20_000)
+        if len(normalized_action) > 500:
+            # The full command/tool payload remains in details_json.  Keep the indexed
+            # display column bounded without allowing observability to fail an otherwise
+            # successful Agent tool call.
+            digest = hashlib.sha256(normalized_action.encode("utf-8")).hexdigest()[:12]
+            suffix = f" … [sha256:{digest}]"
+            normalized_action = normalized_action[: 500 - len(suffix)].rstrip() + suffix
         row = AuditEventRow(
             actor=self._required(actor, "actor", 200),
             event_type=self._required(event_type, "event_type", 100),
-            action=self._required(action, "action", 500),
+            action=normalized_action,
             outcome=self._required(outcome, "outcome", 30),
             session_id=session_id,
             target=target,

@@ -168,17 +168,11 @@ class CommandPolicy:
     def _classify_operation(self, executable: str, args: list[str]) -> tuple[CommandRisk, str]:
         if executable in self._readonly_commands:
             if executable == "find" and any(arg in self._dangerous_find_options for arg in args):
-                risk = (
-                    CommandRisk.HIGH
-                    if "-delete" in args
-                    else CommandRisk.MEDIUM
-                )
+                risk = CommandRisk.HIGH if "-delete" in args else CommandRisk.MEDIUM
                 return risk, "find 包含执行或删除动作"
             if executable == "sysctl" and any("=" in arg or arg == "-w" for arg in args):
                 return CommandRisk.HIGH, "修改内核参数"
-            if executable == "env" and any(
-                "=" in arg or not arg.startswith("-") for arg in args
-            ):
+            if executable == "env" and any("=" in arg or not arg.startswith("-") for arg in args):
                 return CommandRisk.MEDIUM, "修改环境或通过 env 执行子命令"
             if executable == "ip" and any(
                 arg in {"add", "delete", "del", "set", "replace", "flush"} for arg in args
@@ -240,17 +234,13 @@ class CommandPolicy:
             if action in {"ps", "images", "inspect", "logs", "stats", "version", "info"}:
                 return CommandRisk.READONLY, "读取容器状态"
             if action in {"container", "image", "network", "volume"}:
-                nested = next(
-                    (arg for arg in args[1:] if not arg.startswith("-")), ""
-                )
+                nested = next((arg for arg in args[1:] if not arg.startswith("-")), "")
                 if nested in {"ls", "inspect", "logs", "stats", "top"}:
                     return CommandRisk.READONLY, "读取 Docker 资源状态"
                 if nested in {"rm", "prune"}:
                     return CommandRisk.HIGH, "删除 Docker 资源"
             if action == "compose":
-                nested = next(
-                    (arg for arg in args[1:] if not arg.startswith("-")), ""
-                )
+                nested = next((arg for arg in args[1:] if not arg.startswith("-")), "")
                 if nested in {"ps", "logs", "config", "images", "top", "version"}:
                     return CommandRisk.READONLY, "读取 Compose 项目状态"
                 if nested in {"down", "rm", "kill"}:
@@ -612,15 +602,12 @@ class PersistentManualTerminal:
             if shell_name in {"pwsh", "pwsh.exe", "powershell", "powershell.exe"}:
                 return (
                     f"{command}\n$__qo_status=$LASTEXITCODE; if ($null -eq $__qo_status) "
-                    f"{{$__qo_status=0}}; Write-Output \"{sentinel}:$__qo_status:$PWD\"\n"
+                    f'{{$__qo_status=0}}; Write-Output "{sentinel}:$__qo_status:$PWD"\n'
                 )
             return f"{command}\necho {sentinel}:%errorlevel%:%CD%\n"
         # The marker is a shell command, so exports, cd, functions and other shell state from the
         # operator command remain in this exact process for the next request.
-        return (
-            f"{command}\n__qo_status=$?\n"
-            f"printf '{sentinel}:%s:%s\\n' \"$__qo_status\" \"$PWD\"\n"
-        )
+        return f'{command}\n__qo_status=$?\nprintf \'{sentinel}:%s:%s\\n\' "$__qo_status" "$PWD"\n'
 
     def _collect_until(self, sentinel: str) -> TerminalCommandResult:
         deadline = time.monotonic() + self.timeout_seconds
@@ -632,9 +619,7 @@ class PersistentManualTerminal:
         while True:
             marker_index = scanning.find(marker)
             if marker_index >= 0:
-                truncated = (
-                    self._append_bounded(collected, scanning[:marker_index]) or truncated
-                )
+                truncated = self._append_bounded(collected, scanning[:marker_index]) or truncated
                 marker_payload = scanning[marker_index:]
                 newline_index = marker_payload.find(b"\n")
                 if newline_index < 0:
@@ -656,9 +641,7 @@ class PersistentManualTerminal:
                         str(self.cwd),
                         False,
                     )
-                marker_line = marker_payload[:newline_index].decode(
-                    "utf-8", errors="replace"
-                )
+                marker_line = marker_payload[:newline_index].decode("utf-8", errors="replace")
                 self._carryover.extend(marker_payload[newline_index + 1 :])
                 try:
                     _prefix, status_text, current_cwd = marker_line.split(":", 2)
@@ -683,9 +666,7 @@ class PersistentManualTerminal:
             # no-newline output bounded rather than making ``readline`` allocate without limit.
             safe_length = max(0, len(scanning) - len(marker) + 1)
             if safe_length:
-                truncated = (
-                    self._append_bounded(collected, scanning[:safe_length]) or truncated
-                )
+                truncated = self._append_bounded(collected, scanning[:safe_length]) or truncated
                 del scanning[:safe_length]
             remaining = deadline - time.monotonic()
             if remaining <= 0:

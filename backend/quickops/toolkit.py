@@ -182,8 +182,10 @@ class SharedSessionOperationsToolkit(Toolkit):
         return self._run_exact_argv(args)
 
     def execute_safe_command(self, args: list[str]) -> str:
-        """Execute a classified read-only or low-risk command in the shared Shell."""
-        return self._run_classified(args, {CommandRisk.READONLY, CommandRisk.LOW})
+        """Execute a read-only, low-risk, or ordinary recoverable change autonomously."""
+        return self._run_classified(
+            args, {CommandRisk.READONLY, CommandRisk.LOW, CommandRisk.MEDIUM}
+        )
 
     def execute_elevated_command(self, args: list[str]) -> str:
         """Execute the exact elevated argv approved through Agno HITL in the shared Shell."""
@@ -194,6 +196,32 @@ class SharedSessionOperationsToolkit(Toolkit):
         if not command.strip():
             raise CommandPolicyError("command 不能为空")
         return self._execute(command)
+
+
+class AutonomousSafeOperationsToolkit(Toolkit):
+    """Unattended guard channel limited to server-classified non-elevated changes."""
+
+    def __init__(self, executor: ControlledCommandExecutor):
+        self.executor = executor
+        super().__init__(
+            name="quickops_asset_guard_operations",
+            tools=[self.execute_safe_repair],
+            instructions=(
+                "This tool exists only for an asset guard explicitly configured for safe repair. "
+                "It accepts one argv list and rejects high/critical operations server-side. Use it "
+                "only when the configured guard policy clearly authorizes the exact repair, after "
+                "collecting evidence, and verify the result immediately."
+            ),
+            add_instructions=True,
+        )
+
+    def execute_safe_repair(self, args: list[str]) -> str:
+        """Run one read-only, low-risk, or ordinary recoverable repair; reject elevated risk."""
+        decision = self.executor.policy.classify_argv(args)
+        if decision.risk not in {CommandRisk.READONLY, CommandRisk.LOW, CommandRisk.MEDIUM}:
+            raise CommandPolicyError(decision.reason or "守护操作超出安全修复级别")
+        return self.executor.execute(decision).output
+
 
 class ReadOnlyOperationsToolkit(Toolkit):
     """Agno toolkit exposing only bounded, read-only host observations."""
@@ -310,16 +338,16 @@ class ManagedOperationsToolkit(Toolkit):
         return self.shell_tools.run_shell_command(args)
 
     def execute_safe_command(self, args: list[str]) -> str:
-        """Execute a read-only or low-risk command in delegated-approval mode."""
-        return self._run(args, {CommandRisk.READONLY, CommandRisk.LOW})
+        """Execute read-only, low-risk, or ordinary recoverable changes autonomously."""
+        return self._run(args, {CommandRisk.READONLY, CommandRisk.LOW, CommandRisk.MEDIUM})
 
     def execute_elevated_command(self, args: list[str]) -> str:
         """Execute a recognized risky or unknown command after explicit Agno confirmation."""
         if not args or not all(isinstance(item, str) and item for item in args):
             raise CommandPolicyError("args 必须是非空字符串数组")
         decision = self.executor.policy.classify_argv(args)
-        if decision.risk in {CommandRisk.READONLY, CommandRisk.LOW}:
-            raise CommandPolicyError("低风险命令应使用 execute_safe_command")
+        if decision.risk in {CommandRisk.READONLY, CommandRisk.LOW, CommandRisk.MEDIUM}:
+            raise CommandPolicyError("非高风险命令应使用 execute_safe_command")
         # The operator has approved this exact argv through Agno. Use Agno's maintained shell
         # toolkit for the execution path instead of duplicating a general command runner.
         return self.shell_tools.run_shell_command(args)

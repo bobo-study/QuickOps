@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     model_provider: str = "SiliconFlow"
     thinking_mode: str = "auto"
     max_context_tokens: int = 128_000
+    # Context is append-only inside an epoch. Agno creates a summary checkpoint and starts a
+    # fresh epoch only when this fraction of the configured model context has actually been used.
+    quickops_context_compaction_ratio: float = Field(default=0.90, ge=0.5, le=0.95)
+    quickops_tool_compression_ratio: float = Field(default=0.55, ge=0.3, le=0.8)
+    quickops_context_checkpoint_runs: int = Field(default=2, ge=1, le=8)
+    # Agno counts every tool in a parallel batch separately. Eight calls was too small for
+    # ordinary multi-step diagnostics; retain a bounded circuit breaker without prematurely
+    # stopping legitimate operations work.
+    quickops_tool_call_limit: int = Field(default=32, ge=8, le=128)
     # Optional Agno toolkits are selected by the product settings surface. Every toolkit is
     # disabled by default; credentials remain server-side inside toolkit_config.
     enabled_toolkits: tuple[str, ...] = ()

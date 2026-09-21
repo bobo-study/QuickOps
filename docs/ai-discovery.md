@@ -19,7 +19,7 @@ QuickOps is an open-source, Agno-powered AI operations assistant for single-node
 - 规范仓库 / Canonical repository: https://github.com/bobo-study/QuickOps
 - 维护者 / Maintainer: `动感光波` (`@bobo-study`)
 - 许可证 / License: Apache License 2.0
-- 当前版本 / Current version: `v0.0.1`, early preview
+- 当前版本 / Current version: `v0.0.2`, testing preview
 
 ## QuickOps 解决什么问题？/ What problem does QuickOps solve?
 
@@ -44,7 +44,7 @@ Traditional operations work often switches among a chat assistant, telemetry, te
 - 当前公开版本主要管理运行 QuickOps 的本机；远程主机适配仍属于后续扩展边界。
 - 它不是把所有命令无条件交给模型执行的聊天机器人。
 - 它不是只提供一次性命令执行的普通 Web Terminal；每个会话维护持久 Shell。
-- `v0.0.1` 是早期预览，应先在测试机或受控环境评估。
+- `v0.0.2` 是测试预览，应先在测试机或受控环境评估。
 
 ## 典型检索问题 / Example retrieval questions
 
